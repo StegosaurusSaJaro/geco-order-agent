@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { Fragment } from 'react';
-import { Box, Inbox, LogOut, MessageSquare, Package } from 'lucide-react';
+import { BarChart3, Box, Inbox, LogOut, MessageSquare, Package } from 'lucide-react';
 import { signOutAction } from '@/app/login/actions';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 export type BreadcrumbItem = {
@@ -10,7 +11,7 @@ export type BreadcrumbItem = {
   href?: string;
 };
 
-type NavSection = 'orders' | 'conversations' | 'inventory';
+type NavSection = 'orders' | 'conversations' | 'inventory' | 'reports';
 
 type AppShellProps = {
   email: string | undefined;
@@ -33,6 +34,7 @@ const NAV_ITEMS: ReadonlyArray<{
     icon: MessageSquare,
   },
   { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Box },
+  { key: 'reports', label: 'Reports', href: '/reports', icon: BarChart3 },
 ];
 
 function getInitials(email: string | undefined): string {
@@ -109,19 +111,31 @@ export function AppShell({
 
         <div className="border-t border-sidebar-border pt-2.5 flex flex-col gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="size-7 rounded-md bg-background border border-border grid place-items-center text-[11.5px] font-semibold shrink-0">
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-medium truncate">
-                Sales Staff
-              </div>
-              {email ? (
-                <div className="font-mono text-[11px] text-muted-foreground truncate">
-                  {email}
+            {email === undefined ? (
+              <>
+                <Skeleton className="size-7 rounded-md shrink-0" />
+                <div className="min-w-0 flex-1 flex flex-col gap-1">
+                  <Skeleton className="h-3.5 w-20" />
+                  <Skeleton className="h-3 w-32" />
                 </div>
-              ) : null}
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="size-7 rounded-md bg-background border border-border grid place-items-center text-[11.5px] font-semibold shrink-0">
+                  {initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] font-medium truncate">
+                    Sales Staff
+                  </div>
+                  {email ? (
+                    <div className="font-mono text-[11px] text-muted-foreground truncate">
+                      {email}
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
 
           <form action={signOutAction} className="w-full">

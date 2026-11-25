@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
+import { ConversationsSkeleton } from '@/components/ConversationsSkeleton';
 import { LiveRefresh } from '@/components/LiveRefresh';
 import { Pagination } from '@/components/Pagination';
 import { TierBadge } from '@/components/StatusBadge';
@@ -34,19 +36,21 @@ type MessageRow = {
 };
 type OrderRow = { id: string; conversation_id: string | null };
 
+type SupabaseServerClient = Awaited<ReturnType<typeof requireUser>>['supabase'];
+
 function previewText(msg: MessageRow): string {
   const raw = msg.body?.trim() || msg.file_name?.trim() || `[${msg.kind}]`;
   const normalized = raw.replace(/\s+/g, ' ').trim();
   return normalized.length <= 80 ? normalized : `${normalized.slice(0, 77).trimEnd()}…`;
 }
 
-export default async function ConversationsPage({
-  searchParams,
+async function ConversationsContent({
+  supabase,
+  requestedPage,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  supabase: SupabaseServerClient;
+  requestedPage: number;
 }) {
-  const { supabase, user } = await requireUser();
-
   const [conversationsRes, messagesRes, ordersRes] = await Promise.all([
     supabase.from('conversations').select('id, created_at, customers(name, tiers(name))'),
     supabase
@@ -90,22 +94,10 @@ export default async function ConversationsPage({
       };
     })
     .sort((a, b) => b.sortAt - a.sortAt);
-  const pages = pageWindow(parsePage(await searchParams), rows.length, CONVERSATIONS_PAGE_SIZE);
+  const pages = pageWindow(requestedPage, rows.length, CONVERSATIONS_PAGE_SIZE);
 
   return (
-    <AppShell
-      email={user.email}
-      active="conversations"
-      breadcrumb={[{ label: 'Conversations' }]}
-    >
-      <LiveRefresh
-        {...getSupabaseConfig()}
-        channelName="conversations"
-        subscriptions={[
-          { table: 'messages', event: 'INSERT' },
-          { table: 'orders', event: 'INSERT' },
-        ]}
-      />
+    <>
       <div className="flex flex-col gap-1 min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight">Conversations</h1>
         <p className="text-sm text-muted-foreground tabular-nums">
@@ -182,6 +174,35 @@ export default async function ConversationsPage({
           <Pagination pages={pages} basePath="/conversations" itemLabel="conversations" />
         </Card>
       )}
+    </>
+  );
+}
+
+export default async function ConversationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { supabase, user } = await requireUser();
+  const requestedPage = parsePage(await searchParams);
+
+  return (
+    <AppShell
+      email={user.email}
+      active="conversations"
+      breadcrumb={[{ label: 'Conversations' }]}
+    >
+      <LiveRefresh
+        {...getSupabaseConfig()}
+        channelName="conversations"
+        subscriptions={[
+          { table: 'messages', event: 'INSERT' },
+          { table: 'orders', event: 'INSERT' },
+        ]}
+      />
+      <Suspense key={`page=${requestedPage}`} fallback={<ConversationsSkeleton />}>
+        <ConversationsContent supabase={supabase} requestedPage={requestedPage} />
+      </Suspense>
     </AppShell>
   );
 }

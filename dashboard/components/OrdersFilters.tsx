@@ -18,12 +18,17 @@ import {
 type OrdersFiltersProps = {
   filters: OrderFilters;
   tiers: TierOption[];
+  basePath?: string;
 };
 
 const SELECT_CLASS =
   'h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:border-ring';
 
-export function OrdersFilters({ filters, tiers }: OrdersFiltersProps) {
+export function OrdersFilters({
+  filters,
+  tiers,
+  basePath = '/reports',
+}: OrdersFiltersProps) {
   const router = useRouter();
   const active = hasActiveFilters(filters);
   const csvHref = `/api/orders/export?${buildFilterQuery(filters, { format: 'csv' })}`;
@@ -39,7 +44,7 @@ export function OrdersFilters({ filters, tiers }: OrdersFiltersProps) {
       status: String(formData.get('status') ?? '').trim(),
     };
     const qs = buildFilterQuery(next);
-    router.push(qs ? `/orders?${qs}` : '/orders');
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   return (
@@ -48,7 +53,7 @@ export function OrdersFilters({ filters, tiers }: OrdersFiltersProps) {
         <form
           className="flex flex-col gap-3"
           method="GET"
-          action="/orders"
+          action={basePath}
           onSubmit={handleSubmit}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -125,7 +130,7 @@ export function OrdersFilters({ filters, tiers }: OrdersFiltersProps) {
               </Button>
               {active ? (
                 <Button variant="ghost" size="sm" asChild>
-                  <Link href="/orders">Reset</Link>
+                  <Link href={basePath}>Reset</Link>
                 </Button>
               ) : null}
             </div>
