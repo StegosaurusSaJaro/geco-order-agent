@@ -78,6 +78,12 @@ tbody tr:hover { background: #f9fbfa; }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12); }
 .error-box { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger-text); font-size: 13px; margin-bottom: 14px; }
 .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+.stock-cell { min-width: 190px; }
+.stock-form { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.stock-input { width: 92px; padding: 6px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.stock-msg { margin-top: 6px; font-size: 12px; text-align: right; white-space: normal; }
+.stock-msg-ok { color: var(--accent); font-weight: 500; }
+.stock-msg-err { color: var(--danger-text); font-weight: 500; }
 @media (max-width: 640px) {
   .nav-inner { padding: 0 14px; }
   .nav-user span { display: none; }
