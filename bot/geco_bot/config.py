@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ class Settings:
     db_url: str
     model: str
     fallback_model: str
+    review_threshold_usd: Decimal
 
 
 def load_settings() -> Settings:
@@ -22,4 +24,5 @@ def load_settings() -> Settings:
         db_url=os.environ["SUPABASE_DB_URL"],
         model=os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite"),
         fallback_model=os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite"),
+        review_threshold_usd=Decimal(os.environ.get("REVIEW_THRESHOLD_USD") or "2000"),
     )
