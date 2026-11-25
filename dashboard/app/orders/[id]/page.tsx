@@ -1,28 +1,68 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Nav } from '@/components/Nav';
+import { AlertCircle, ArrowLeft, MessageSquare, Paperclip } from 'lucide-react';
+import { AppShell } from '@/components/AppShell';
+import { LiveRefresh } from '@/components/LiveRefresh';
+import { StatusBadge, TierBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
 import { getSupabaseConfig, requireUser } from '@/lib/supabase';
-import { LiveRefresh } from '@/components/LiveRefresh';
+import { cn } from '@/lib/utils';
 import { OrderReviewActions, reviewReasonLabel } from './OrderReviewActions';
 
 export const dynamic = 'force-dynamic';
 
 type CustomerRow = { name: string; tiers: { name: string } | { name: string }[] | null };
 type OrderDetailRow = {
-  id: string; conversation_id: string; status: string; source: string; po_number: string | null;
-  version: number; currency: string; total: number | string; review_reasons: string[] | null;
-  confirmed_at: string | null; created_at: string; customers: CustomerRow | CustomerRow[] | null;
+  id: string;
+  conversation_id: string;
+  status: string;
+  source: string;
+  po_number: string | null;
+  version: number;
+  currency: string;
+  total: number | string;
+  review_reasons: string[] | null;
+  confirmed_at: string | null;
+  created_at: string;
+  customers: CustomerRow | CustomerRow[] | null;
 };
 type ProductInfo = { name: string; stock_qty: number | string };
 type OrderLineRow = {
-  line_no: number; sku: string; quantity: number | string; unit_code: string;
-  unit_price: number | string; line_total: number | string;
+  line_no: number;
+  sku: string;
+  quantity: number | string;
+  unit_code: string;
+  unit_price: number | string;
+  line_total: number | string;
   products: ProductInfo | ProductInfo[] | null;
 };
 type MessageRow = {
-  id: string; direction: string; author: string; kind: string;
-  body: string | null; file_name: string | null; created_at: string;
+  id: string;
+  direction: string;
+  author: string;
+  kind: string;
+  body: string | null;
+  file_name: string | null;
+  created_at: string;
 };
 type OrderMessageLinkRow = { message_id: string; messages: MessageRow | MessageRow[] | null };
 
@@ -38,19 +78,37 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { supabase, user } = await requireUser();
   const { data: orderData, error: orderError } = await supabase
     .from('orders')
-    .select('id, conversation_id, status, source, po_number, version, currency, total, review_reasons, confirmed_at, created_at, customers(name, tiers(name))')
+    .select(
+      'id, conversation_id, status, source, po_number, version, currency, total, review_reasons, confirmed_at, created_at, customers(name, tiers(name))'
+    )
     .eq('id', id)
     .maybeSingle();
 
   if (orderError) {
     return (
-      <>
-        <Nav email={user.email} active="orders" />
-        <main className="container">
-          <Link href="/orders" className="back-link">← Back to Orders</Link>
-          <div className="error-box">Failed to load order: {orderError.message}</div>
-        </main>
-      </>
+      <AppShell
+        email={user.email}
+        active="orders"
+        breadcrumb={[{ label: 'Orders', href: '/orders' }, { label: 'Order' }]}
+      >
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/orders">
+              <ArrowLeft className="size-3.5" />
+              Back to Orders
+            </Link>
+          </Button>
+        </div>
+        <Alert
+          variant="destructive"
+          className="border-destructive/40 bg-[var(--destructive-soft)]"
+        >
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            Failed to load order: {orderError.message}
+          </AlertDescription>
+        </Alert>
+      </AppShell>
     );
   }
   if (!orderData) notFound();
@@ -60,7 +118,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     supabase
       .from('order_lines')
       .select('line_no, sku, quantity, unit_code, unit_price, line_total, products(name, stock_qty)')
-      .eq('order_id', id).eq('version', order.version).order('line_no', { ascending: true }),
+      .eq('order_id', id)
+      .eq('version', order.version)
+      .order('line_no', { ascending: true }),
     supabase
       .from('order_messages')
       .select('message_id, messages(id, direction, author, kind, body, file_name, created_at)')
@@ -78,17 +138,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const reviewReasons = Array.isArray(order.review_reasons) ? order.review_reasons : [];
   const meta = [
     ['Customer', customer?.name ?? '—'],
-    ['Tier', tier ? <span className="badge badge-tier">{tier.name}</span> : '—'],
+    ['Tier', tier ? <TierBadge name={tier.name} /> : '—'],
     ['Source', statusLabel(order.source)],
-    ['PO Number', order.po_number ? <span className="mono">{order.po_number}</span> : '—'],
-    ['Total', formatCurrency(order.total, order.currency)],
+    ['PO Number', order.po_number ? <span className="font-mono">{order.po_number}</span> : '—'],
+    ['Total', <span className="font-semibold tabular-nums">{formatCurrency(order.total, order.currency)}</span>],
     ['Created', formatDateTime(order.created_at)],
     ['Confirmed', formatDateTime(order.confirmed_at)],
   ] as const;
 
   return (
-    <>
-      <Nav email={user.email} active="orders" />
+    <AppShell
+      email={user.email}
+      active="orders"
+      breadcrumb={[
+        { label: 'Orders', href: '/orders' },
+        { label: `#${shortId(order.id)}` },
+      ]}
+    >
       <LiveRefresh
         {...getSupabaseConfig()}
         channelName={`order-${order.id}`}
@@ -97,132 +163,254 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           { table: 'messages', event: 'INSERT', filter: `conversation_id=eq.${order.conversation_id}` },
         ]}
       />
-      <main className="container">
-        <div className="page-header">
-          <Link href="/orders" className="back-link">← Back to Orders</Link>
-          <div className="page-row">
-            <div>
-              <h1 className="page-title">Order <span className="mono">#{shortId(order.id)}</span></h1>
-              <p className="page-subtitle">{customer?.name ?? 'Unknown customer'} · v{order.version}</p>
-            </div>
-            <Link href={`/conversations/${order.conversation_id}`} className="btn btn-ghost">View full chat</Link>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between min-w-0">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight">
+              Order <span className="font-mono">#{shortId(order.id)}</span>
+            </h1>
+            <StatusBadge status={order.status} />
           </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {customer?.name ?? 'Unknown customer'} · v{order.version}
+          </p>
         </div>
 
-        <OrderReviewActions
-          orderId={order.id}
-          status={order.status}
-          reviewReasons={reviewReasons}
-        />
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/orders">
+              <ArrowLeft className="size-3.5" />
+              Back to Orders
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/conversations/${order.conversation_id}`}>
+              <MessageSquare className="size-3.5" />
+              View full chat
+            </Link>
+          </Button>
+        </div>
+      </div>
 
-        <section className="card">
-          <div className="card-header">
-            <span>Order Summary</span>
-            <span className={`badge badge-${order.status}`}>{statusLabel(order.status)}</span>
-          </div>
-          <div className="card-body">
-            <div className="meta-grid">
-              {meta.map(([label, val]) => (
-                <div key={label} className="meta-item">
-                  <span className="meta-label">{label}</span>
-                  <span className="meta-value">{val}</span>
-                </div>
-              ))}
-            </div>
-            {order.status !== 'needs_review' && reviewReasons.length > 0 ? (
-              <div className="meta-item" style={{ marginTop: '14px' }}>
-                <span className="meta-label">Review Reasons</span>
-                <div className="msg-tags">{reviewReasons.map((r) => <span key={r} className="badge badge-needs_review">{reviewReasonLabel(r)}</span>)}</div>
+      <OrderReviewActions
+        orderId={order.id}
+        status={order.status}
+        reviewReasons={reviewReasons}
+      />
+
+      <Card className="gap-0 py-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b py-4">
+          <CardTitle className="text-base">Order Summary</CardTitle>
+          <StatusBadge status={order.status} />
+        </CardHeader>
+        <CardContent className="py-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {meta.map(([label, val]) => (
+              <div key={label} className="flex flex-col gap-1 min-w-0">
+                <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                <span className="text-sm font-medium text-foreground break-words">{val}</span>
               </div>
-            ) : null}
+            ))}
           </div>
-        </section>
-
-        <section className="card">
-          <div className="card-header">
-            <span>Order Lines</span>
-            <span className="page-subtitle">{lines.length} {lines.length === 1 ? 'line' : 'lines'}</span>
-          </div>
-          {linesRes.error ? (
-            <div className="card-body"><div className="error-box">Failed to load order lines: {linesRes.error.message}</div></div>
-          ) : lines.length === 0 ? (
-            <div className="empty">No order lines found.</div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th className="num">#</th><th>SKU</th><th>Product</th><th className="num">Qty</th>
-                    <th className="num">Stock</th><th>Unit</th><th className="num">Unit Price</th><th className="num">Line Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => {
-                    const product = one(line.products);
-                    const qty = Number(line.quantity);
-                    const stockQty = product?.stock_qty !== undefined && product?.stock_qty !== null ? Number(product.stock_qty) : null;
-                    const isShort = stockQty !== null && Number.isFinite(stockQty) && Number.isFinite(qty) && stockQty < qty;
-                    return (
-                      <tr key={line.line_no} className={isShort ? 'row-short' : undefined}>
-                        <td className="num">{line.line_no}</td>
-                        <td className="mono">{line.sku}</td>
-                        <td>{product?.name ?? '—'}</td>
-                        <td className="num">{formatQty(line.quantity)}</td>
-                        <td className="num">
-                          <span className="stock-cell">
-                            <span>{formatQty(product?.stock_qty)}</span>
-                            {isShort ? <span className="badge badge-short">Short</span> : null}
-                          </span>
-                        </td>
-                        <td>{line.unit_code}</td>
-                        <td className="num">{formatCurrency(line.unit_price, order.currency)}</td>
-                        <td className="num">{formatCurrency(line.line_total, order.currency)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={7} className="num" style={{ fontWeight: 600 }}>Total</td>
-                    <td className="num" style={{ fontWeight: 700 }}>{formatCurrency(order.total, order.currency)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="card">
-          <div className="card-header">
-            <span>Linked Messages</span>
-            <span className="page-subtitle">{linkedMessages.length} {linkedMessages.length === 1 ? 'message' : 'messages'}</span>
-          </div>
-          <div className="card-body">
-            {linksRes.error ? (
-              <div className="error-box">Failed to load linked messages: {linksRes.error.message}</div>
-            ) : linkedMessages.length === 0 ? (
-              <div className="empty">No messages linked to this order.</div>
-            ) : (
-              <div className="chat-list">
-                {linkedMessages.map((msg) => (
-                  <div key={msg.id} className={`msg-row ${msg.direction === 'in' ? 'msg-in' : 'msg-out'}`}>
-                    <div className="msg-meta">
-                      <span>{statusLabel(msg.author)}</span><span>·</span>
-                      <span>{msg.direction}</span><span>·</span>
-                      <span>{msg.kind}</span><span>·</span>
-                      <span>{formatDateTime(msg.created_at)}</span>
-                    </div>
-                    <div className="msg-bubble">
-                      {msg.file_name ? <div style={{ marginBottom: msg.body ? '6px' : 0 }}><span className="badge badge-file">{msg.file_name}</span></div> : null}
-                      {msg.body ? <div className="msg-body">{msg.body}</div> : null}
-                    </div>
-                  </div>
+          {order.status !== 'needs_review' && reviewReasons.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4">
+              <span className="text-xs font-medium text-muted-foreground">Review Reasons</span>
+              <div className="flex flex-wrap gap-1.5">
+                {reviewReasons.map((r) => (
+                  <Badge key={r} variant="outline" className="gap-1.5 font-medium">
+                    <span
+                      aria-hidden="true"
+                      className="size-1.5 shrink-0 rounded-full bg-[var(--dot-amber)] ring-1 ring-foreground/15"
+                    />
+                    {reviewReasonLabel(r)}
+                  </Badge>
                 ))}
               </div>
-            )}
-          </div>
-        </section>
-      </main>
-    </>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="gap-0 py-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b py-4">
+          <CardTitle className="text-base">Order Lines</CardTitle>
+          <CardDescription>
+            {lines.length} {lines.length === 1 ? 'line' : 'lines'}
+          </CardDescription>
+        </CardHeader>
+        {linesRes.error ? (
+          <CardContent className="py-5">
+            <Alert
+              variant="destructive"
+              className="border-destructive/40 bg-[var(--destructive-soft)]"
+            >
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Failed to load order lines: {linesRes.error.message}
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        ) : lines.length === 0 ? (
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No order lines found.
+          </CardContent>
+        ) : (
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-6 text-right">#</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right">Unit Price</TableHead>
+                  <TableHead className="pr-6 text-right">Line Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line) => {
+                  const product = one(line.products);
+                  const qty = Number(line.quantity);
+                  const stockQty =
+                    product?.stock_qty !== undefined && product?.stock_qty !== null
+                      ? Number(product.stock_qty)
+                      : null;
+                  const isShort =
+                    stockQty !== null &&
+                    Number.isFinite(stockQty) &&
+                    Number.isFinite(qty) &&
+                    stockQty < qty;
+                  return (
+                    <TableRow
+                      key={line.line_no}
+                      className={isShort ? 'bg-red-50/70 hover:bg-red-50' : undefined}
+                    >
+                      <TableCell className="pl-6 text-right tabular-nums text-muted-foreground">
+                        {line.line_no}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{line.sku}</TableCell>
+                      <TableCell className="max-w-[260px] whitespace-normal">
+                        {product?.name ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatQty(line.quantity)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <span className="inline-flex items-center justify-end gap-1.5">
+                          <span>{formatQty(product?.stock_qty)}</span>
+                          {isShort ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-destructive/40 bg-red-50 text-destructive"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="size-1.5 shrink-0 rounded-full bg-[var(--dot-red)]"
+                              />
+                              Short
+                            </Badge>
+                          ) : null}
+                        </span>
+                      </TableCell>
+                      <TableCell>{line.unit_code}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCurrency(line.unit_price, order.currency)}
+                      </TableCell>
+                      <TableCell className="pr-6 text-right font-medium tabular-nums">
+                        {formatCurrency(line.line_total, order.currency)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={7} className="pl-6 text-right font-semibold">
+                    Total
+                  </TableCell>
+                  <TableCell className="pr-6 text-right font-bold tabular-nums">
+                    {formatCurrency(order.total, order.currency)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card className="gap-0 py-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b py-4">
+          <CardTitle className="text-base">Linked Messages</CardTitle>
+          <CardDescription>
+            {linkedMessages.length} {linkedMessages.length === 1 ? 'message' : 'messages'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="py-5">
+          {linksRes.error ? (
+            <Alert
+              variant="destructive"
+              className="border-destructive/40 bg-[var(--destructive-soft)]"
+            >
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Failed to load linked messages: {linksRes.error.message}
+              </AlertDescription>
+            </Alert>
+          ) : linkedMessages.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No messages linked to this order.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {linkedMessages.map((msg) => {
+                const isIncoming = msg.direction === 'in';
+                return (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      'flex flex-col gap-1 min-w-0',
+                      isIncoming ? 'items-start' : 'items-end'
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground/80">
+                        {statusLabel(msg.author)}
+                      </span>
+                      <span>·</span>
+                      <span>{msg.direction}</span>
+                      <span>·</span>
+                      <span>{msg.kind}</span>
+                      <span>·</span>
+                      <span>{formatDateTime(msg.created_at)}</span>
+                    </div>
+                    <div
+                      className={cn(
+                        'max-w-full sm:max-w-[85%] rounded-lg border border-border px-3.5 py-2.5 text-sm leading-relaxed break-words',
+                        isIncoming ? 'bg-card' : 'bg-sidebar'
+                      )}
+                    >
+                      {msg.file_name ? (
+                        <div className={msg.body ? 'mb-1.5' : undefined}>
+                          <Badge variant="secondary" className="max-w-full gap-1 font-mono text-xs">
+                            <Paperclip className="size-3 shrink-0" />
+                            <span className="truncate">{msg.file_name}</span>
+                          </Badge>
+                        </div>
+                      ) : null}
+                      {msg.body ? (
+                        <div className="whitespace-pre-wrap break-words">{msg.body}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </AppShell>
   );
 }

@@ -18,7 +18,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="login-wrap">
+    <main className="min-h-screen flex items-center justify-center bg-sidebar/50 px-4 py-8">
       <LoginForm />
     </main>
   );
