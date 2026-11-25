@@ -82,6 +82,7 @@ export default async function OrderReceiptPage({
   if (!orderData) notFound();
 
   const order = orderData as OrderReceiptRow;
+  if (order.status !== 'confirmed' && order.status !== 'fulfilled') notFound();
   const { data: linesData, error: linesError } = await supabase
     .from('order_lines')
     .select('line_no, sku, quantity, unit_code, unit_price, line_total, products(name)')
