@@ -236,10 +236,12 @@ export async function fetchOrdersData(
     .order('id', { ascending: false });
 
   if (filters.from) {
-    query = query.gte('created_at', `${filters.from}T00:00:00.000Z`);
+    query = query.gte('created_at', `${filters.from}T00:00:00+08:00`);
   }
   if (filters.to) {
-    query = query.lte('created_at', `${filters.to}T23:59:59.999Z`);
+    const end = new Date(`${filters.to}T00:00:00+08:00`);
+    end.setUTCDate(end.getUTCDate() + 1);
+    query = query.lt('created_at', end.toISOString());
   }
   if (filters.status) {
     query = query.eq('status', filters.status);
@@ -337,16 +339,30 @@ function shortDateLabel(isoDay: string): string {
   }).format(date);
 }
 
+function nextDay(day: string): string {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 export function buildChartData(
   orders: FilteredOrder[],
-  lines: FilteredOrderLine[]
+  lines: FilteredOrderLine[],
+  filters: OrderFilters
 ): OrdersChartData {
   const byDay = new Map<string, { count: number; sales: number }>();
   const byTier = new Map<string, { code: string; name: string; sales: number; count: number }>();
   const byStatus = new Map<string, { count: number; sales: number }>();
 
+  const manilaDay = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
   for (const order of orders) {
-    const day = order.created_at.slice(0, 10);
+    const day = manilaDay.format(new Date(order.created_at));
     const dayEntry = byDay.get(day) ?? { count: 0, sales: 0 };
     dayEntry.count += 1;
     dayEntry.sales = roundMoney(dayEntry.sales + order.total);
@@ -382,14 +398,17 @@ export function buildChartData(
     bySku.set(line.sku, entry);
   }
 
-  const ordersOverTime: OrdersOverTimePoint[] = Array.from(byDay.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, stats]) => ({
-      date,
-      label: shortDateLabel(date),
-      count: stats.count,
-      sales: stats.sales,
-    }));
+  const days = Array.from(byDay.keys()).sort();
+  const firstDay = filters.from || days[0];
+  const lastDay = filters.to || days[days.length - 1];
+  const ordersOverTime: OrdersOverTimePoint[] = [];
+  if (firstDay && lastDay) {
+    for (let date = firstDay; date <= lastDay; date = nextDay(date)) {
+      const stats = byDay.get(date) ?? { count: 0, sales: 0 };
+      ordersOverTime.push({ date, label: shortDateLabel(date), ...stats });
+      if (date === lastDay) break;
+    }
+  }
 
   const salesByTier: SalesByTierPoint[] = Array.from(byTier.values()).sort(
     (a, b) => b.sales - a.sales

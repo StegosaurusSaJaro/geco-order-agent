@@ -22,7 +22,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const filters = parseOrderFilters(await searchParams);
   const { orders, lines, tiers, error } = await fetchOrdersData(supabase, filters);
 
-  const chartData = buildChartData(orders, lines);
+  const chartData = buildChartData(orders, lines, filters);
   const currency = orders[0]?.currency ?? 'USD';
   const totalSales = Math.round(orders.reduce((sum, order) => sum + order.total, 0) * 100) / 100;
   const filtered = hasActiveFilters(filters);
