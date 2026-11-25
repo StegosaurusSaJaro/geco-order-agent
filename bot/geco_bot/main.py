@@ -48,7 +48,7 @@ class OrderBot:
             self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
         return reply
 
-    def compose(self, customer, conversation_id, reading) -> Reply:
+    def compose(self, customer, conversation_id, reading, source: str = "text") -> Reply:
         if reading is None:
             return Reply(READ_FAILED)
         facts = orders.reply_facts(self.db.price_and_stock(customer.tier_id, orders.placeholder_skus(reading.reply)))
@@ -63,7 +63,9 @@ class OrderBot:
         dropped += unpriced
         if not lines:
             return Reply(join(said, orders.dropped_text(dropped)))
-        order_id = self.db.create_draft(customer.id, conversation_id, lines, total)
+        order_id = self.db.create_draft(
+            customer.id, conversation_id, lines, total, source=source, po_number=reading.po_number
+        )
         return Reply(join(said, orders.draft_text(lines, products, total, dropped)), order_id)
 
     async def on_button(self, user_id: int, chat_id: int, action: str, order_id: str) -> Reply:
@@ -83,14 +85,49 @@ class OrderBot:
         self.db.link_messages(order_id, [pressed_id, reply_id])
         return Reply(text, order_id)
 
-    def on_file(self, user_id: int, chat_id: int, kind: str, caption, file_name, file_mime, telegram_message_id):
+    async def on_file(
+        self,
+        user_id: int,
+        chat_id: int,
+        kind: str,
+        caption: str | None,
+        file_name: str | None,
+        file_mime: str | None,
+        file_bytes: bytes,
+        telegram_message_id=None,
+    ) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
         if customer is None:
             return Reply(UNKNOWN_SENDER)
         conversation_id = self.db.conversation_id(customer.id, chat_id)
-        self.db.save_message(conversation_id, "in", "customer", kind, caption, telegram_message_id, file_name, file_mime)
-        self.db.save_message(conversation_id, "out", "bot", "text", FILES_LATER)
-        return Reply(FILES_LATER)
+        history = self.db.recent_messages(conversation_id)
+        inbound_id = self.db.save_message(
+            conversation_id, "in", "customer", kind, caption, telegram_message_id, file_name, file_mime
+        )
+        source = file_source(kind, file_name, file_mime)
+        if source is None:
+            self.db.save_message(conversation_id, "out", "bot", "text", READ_FAILED)
+            return Reply(READ_FAILED)
+        reading = await self.reader.read(
+            caption or "", history, file_bytes=file_bytes, file_mime=file_mime, file_name=file_name
+        )
+        reply = self.compose(customer, conversation_id, reading, source=source)
+        outbound_id = self.db.save_message(conversation_id, "out", "bot", "text", reply.text)
+        if reply.order_id:
+            self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
+        return reply
+
+
+def file_source(kind: str, file_name: str | None, file_mime: str | None) -> str | None:
+    if kind == "photo" or (file_mime or "").startswith("image/") or (file_name or "").lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        return "photo"
+    if file_mime == "application/pdf" or (file_name or "").lower().endswith(".pdf"):
+        return "pdf"
+    if file_mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" or (file_name or "").lower().endswith(".xlsx"):
+        return "xlsx"
+    if file_mime == "application/vnd.ms-excel" or (file_name or "").lower().endswith(".xls"):
+        return "xls"
+    return None
 
 
 def join(*parts: str) -> str:
@@ -120,13 +157,22 @@ def build_app(token: str, bot: OrderBot) -> Application:
 
     async def file_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
-        doc = msg.document
-        kind = "file" if doc else "photo"
-        reply = bot.on_file(
-            update.effective_user.id, msg.chat_id, kind, msg.caption,
-            doc.file_name if doc else None, doc.mime_type if doc else "image/jpeg", msg.message_id,
+        if msg.document:
+            doc = msg.document
+            kind = "file"
+            tg_file = await doc.get_file()
+            file_name = doc.file_name
+            file_mime = doc.mime_type
+        else:
+            kind = "photo"
+            tg_file = await msg.photo[-1].get_file()
+            file_name = None
+            file_mime = "image/jpeg"
+        file_bytes = bytes(await tg_file.download_as_bytearray())
+        reply = await bot.on_file(
+            update.effective_user.id, msg.chat_id, kind, msg.caption, file_name, file_mime, file_bytes, msg.message_id
         )
-        await msg.reply_text(reply.text)
+        await msg.reply_text(reply.text, reply_markup=buttons(reply.order_id) if reply.order_id else None)
 
     app = Application.builder().token(token).build()
     app.add_handler(MessageHandler(filters.TEXT, text_handler))

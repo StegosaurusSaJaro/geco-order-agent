@@ -113,12 +113,20 @@ class Database:
                 (tier_id,),
             ).fetchall()
 
-    def create_draft(self, customer_id, conversation_id, lines: list[dict], total: Decimal) -> str:
+    def create_draft(
+        self,
+        customer_id,
+        conversation_id,
+        lines: list[dict],
+        total: Decimal,
+        source: str = "text",
+        po_number: str | None = None,
+    ) -> str:
         with self.pool.connection() as conn, conn.transaction():
             order_id = conn.execute(
-                "insert into orders (customer_id, conversation_id, status, source, total)"
-                " values (%s, %s, 'draft', 'text', %s) returning id::text",
-                (customer_id, conversation_id, total),
+                "insert into orders (customer_id, conversation_id, status, source, po_number, total)"
+                " values (%s, %s, 'draft', %s, %s, %s) returning id::text",
+                (customer_id, conversation_id, source, po_number, total),
             ).fetchone()["id"]
             for line_no, line in enumerate(lines, start=1):
                 conn.execute(
