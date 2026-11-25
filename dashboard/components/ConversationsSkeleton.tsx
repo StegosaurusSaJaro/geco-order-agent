@@ -1,4 +1,3 @@
-import { AppShell } from '@/components/AppShell';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -12,16 +11,12 @@ import {
 
 const TABLE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
-export default function ConversationsLoading() {
+export function ConversationsSkeleton() {
   return (
-    <AppShell
-      email={undefined}
-      active="conversations"
-      breadcrumb={[{ label: 'Conversations' }]}
-    >
-      <div className="flex flex-col gap-1.5 min-w-0">
-        <Skeleton className="h-8 w-44" />
-        <Skeleton className="h-4 w-32" />
+    <>
+      <div className="flex flex-col gap-1 min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight">Conversations</h1>
+        <Skeleton className="mt-0.5 h-4 w-32" />
       </div>
 
       <Card className="gap-0 py-0 overflow-hidden">
@@ -61,6 +56,6 @@ export default function ConversationsLoading() {
           </TableBody>
         </Table>
       </Card>
-    </AppShell>
+    </>
   );
 }

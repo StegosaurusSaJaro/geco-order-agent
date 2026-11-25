@@ -1,4 +1,3 @@
-import { AppShell } from '@/components/AppShell';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -14,13 +13,13 @@ const FILTER_FIELDS = [0, 1, 2, 3];
 const CHART_CARDS = [0, 1, 2, 3];
 const TABLE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
-export default function OrdersLoading() {
+export function ReportsSkeleton() {
   return (
-    <AppShell email={undefined} active="orders" breadcrumb={[{ label: 'Orders' }]}>
+    <>
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="flex flex-col gap-1.5">
-          <Skeleton className="h-7 w-28" />
-          <Skeleton className="h-4 w-44" />
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-[-0.025em] leading-tight">Reports</h1>
+          <Skeleton className="mt-1.5 h-4 w-44" />
         </div>
       </div>
 
@@ -100,6 +99,6 @@ export default function OrdersLoading() {
           </TableBody>
         </Table>
       </Card>
-    </AppShell>
+    </>
   );
 }

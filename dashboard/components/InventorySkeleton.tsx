@@ -1,4 +1,3 @@
-import { AppShell } from '@/components/AppShell';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -12,16 +11,14 @@ import {
 
 const TABLE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
-export default function InventoryLoading() {
+export function InventorySkeleton() {
   return (
-    <AppShell
-      email={undefined}
-      active="inventory"
-      breadcrumb={[{ label: 'Inventory' }]}
-    >
-      <div className="flex flex-col gap-1.5">
-        <Skeleton className="h-7 w-28" />
-        <Skeleton className="h-4 w-56" />
+    <>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[22px] font-semibold tracking-tight leading-tight">
+          Inventory
+        </h1>
+        <Skeleton className="mt-0.5 h-4 w-56" />
       </div>
 
       <Card className="gap-0 py-0 overflow-hidden">
@@ -57,6 +54,6 @@ export default function InventoryLoading() {
           </TableBody>
         </Table>
       </Card>
-    </AppShell>
+    </>
   );
 }

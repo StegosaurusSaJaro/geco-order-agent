@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
+import { InventorySkeleton } from '@/components/InventorySkeleton';
 import { Pagination } from '@/components/Pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,12 +29,15 @@ type ProductRow = {
   units_of_measure: { name: string } | { name: string }[] | null;
 };
 
-export default async function InventoryPage({
-  searchParams,
+type SupabaseServerClient = Awaited<ReturnType<typeof requireUser>>['supabase'];
+
+async function InventoryContent({
+  supabase,
+  requestedPage,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  supabase: SupabaseServerClient;
+  requestedPage: number;
 }) {
-  const { supabase, user } = await requireUser();
   const { data, error } = await supabase
     .from('products')
     .select('sku, name, unit_code, stock_qty, units_of_measure(name)')
@@ -46,18 +51,10 @@ export default async function InventoryPage({
     unitName: one(row.units_of_measure)?.name ?? null,
     stockQty: Number(row.stock_qty),
   }));
-  const pages = pageWindow(
-    parsePage(await searchParams),
-    products.length,
-    INVENTORY_PAGE_SIZE
-  );
+  const pages = pageWindow(requestedPage, products.length, INVENTORY_PAGE_SIZE);
 
   return (
-    <AppShell
-      email={user.email}
-      active="inventory"
-      breadcrumb={[{ label: 'Inventory' }]}
-    >
+    <>
       <div className="flex flex-col gap-1">
         <h1 className="text-[22px] font-semibold tracking-tight leading-tight">
           Inventory
@@ -112,6 +109,27 @@ export default async function InventoryPage({
           />
         </Card>
       )}
+    </>
+  );
+}
+
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { supabase, user } = await requireUser();
+  const requestedPage = parsePage(await searchParams);
+
+  return (
+    <AppShell
+      email={user.email}
+      active="inventory"
+      breadcrumb={[{ label: 'Inventory' }]}
+    >
+      <Suspense key={`page=${requestedPage}`} fallback={<InventorySkeleton />}>
+        <InventoryContent supabase={supabase} requestedPage={requestedPage} />
+      </Suspense>
     </AppShell>
   );
 }
