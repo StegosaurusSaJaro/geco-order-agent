@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
 import type { OrdersChartData } from '@/lib/orders';
 
@@ -44,41 +45,44 @@ function compactCurrency(value: number): string {
 
 export function OrdersCharts({ data, currency }: OrdersChartsProps) {
   const tooltipStyle = {
-    backgroundColor: '#fff',
-    border: '1px solid #e2e6e1',
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2e3de',
     borderRadius: '8px',
     fontSize: '12.5px',
-    color: '#18221f',
+    color: '#181b31',
   };
 
   return (
-    <section className="charts-grid" aria-label="Order charts">
-      <div className="card chart-card">
-        <div className="card-header">
-          <span>Orders Over Time</span>
-          <span className="muted">Daily count</span>
-        </div>
-        <div className="chart-body">
+    <section className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Order charts">
+      <Card className="py-0 gap-0 min-w-0">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <CardTitle className="text-[13.5px] font-semibold">Orders Over Time</CardTitle>
+          <span className="text-xs text-muted-foreground">Daily count</span>
+        </CardHeader>
+        <CardContent className="p-4">
           {data.ordersOverTime.length === 0 ? (
-            <div className="chart-empty">No matching orders.</div>
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No matching orders.
+            </div>
           ) : (
-            <div className="chart-box">
+            <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart
                   data={data.ordersOverTime}
                   margin={{ top: 8, right: 12, left: -16, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e6e1" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e3de" vertical={false} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
-                    axisLine={{ stroke: '#e2e6e1' }}
+                    axisLine={{ stroke: '#d5d7d0' }}
                     minTickGap={20}
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    domain={[0, 'auto']}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -98,46 +102,50 @@ export function OrdersCharts({ data, currency }: OrdersChartsProps) {
                     }}
                   />
                   <Area
-                    type="monotone"
+                    type="linear"
                     dataKey="count"
-                    stroke="#0f766e"
+                    baseValue={0}
+                    stroke="#181b31"
                     strokeWidth={2}
-                    fill="#e6f4f1"
-                    activeDot={{ r: 4, fill: '#0f766e' }}
+                    fill="rgba(24, 27, 49, 0.10)"
+                    dot={{ r: 2.5, fill: '#e21d3c', strokeWidth: 0 }}
+                    activeDot={{ r: 4, fill: '#e21d3c', stroke: '#ffffff', strokeWidth: 1.5 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="card chart-card">
-        <div className="card-header">
-          <span>Sales by Tier</span>
-          <span className="muted">DB order totals</span>
-        </div>
-        <div className="chart-body">
+      <Card className="py-0 gap-0 min-w-0">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <CardTitle className="text-[13.5px] font-semibold">Sales by Tier</CardTitle>
+          <span className="text-xs text-muted-foreground">DB order totals</span>
+        </CardHeader>
+        <CardContent className="p-4">
           {data.salesByTier.length === 0 ? (
-            <div className="chart-empty">No matching orders.</div>
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No matching orders.
+            </div>
           ) : (
-            <div className="chart-box">
+            <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart
                   data={data.salesByTier}
                   margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e6e1" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e3de" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
-                    axisLine={{ stroke: '#e2e6e1' }}
+                    axisLine={{ stroke: '#d5d7d0' }}
                     interval={0}
                   />
                   <YAxis
                     tickFormatter={compactCurrency}
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
                     axisLine={false}
                     width={52}
@@ -162,38 +170,40 @@ export function OrdersCharts({ data, currency }: OrdersChartsProps) {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="card chart-card">
-        <div className="card-header">
-          <span>Top SKUs</span>
-          <span className="muted">By line total</span>
-        </div>
-        <div className="chart-body">
+      <Card className="py-0 gap-0 min-w-0">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <CardTitle className="text-[13.5px] font-semibold">Top SKUs</CardTitle>
+          <span className="text-xs text-muted-foreground">By line total</span>
+        </CardHeader>
+        <CardContent className="p-4">
           {data.topSkus.length === 0 ? (
-            <div className="chart-empty">No matching order lines.</div>
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No matching order lines.
+            </div>
           ) : (
-            <div className="chart-box">
+            <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart
                   data={data.topSkus}
                   layout="vertical"
                   margin={{ top: 4, right: 14, left: 4, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e6e1" horizontal={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e3de" horizontal={false} />
                   <XAxis
                     type="number"
                     tickFormatter={compactCurrency}
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
-                    axisLine={{ stroke: '#e2e6e1' }}
+                    axisLine={{ stroke: '#d5d7d0' }}
                   />
                   <YAxis
                     type="category"
                     dataKey="sku"
                     width={92}
-                    tick={{ fontSize: 11, fill: '#18221f' }}
+                    tick={{ fontSize: 11, fill: '#181b31' }}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -210,35 +220,37 @@ export function OrdersCharts({ data, currency }: OrdersChartsProps) {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="card chart-card">
-        <div className="card-header">
-          <span>Orders by Status</span>
-          <span className="muted">Order count</span>
-        </div>
-        <div className="chart-body">
+      <Card className="py-0 gap-0 min-w-0">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <CardTitle className="text-[13.5px] font-semibold">Orders by Status</CardTitle>
+          <span className="text-xs text-muted-foreground">Order count</span>
+        </CardHeader>
+        <CardContent className="p-4">
           {data.ordersByStatus.length === 0 ? (
-            <div className="chart-empty">No matching orders.</div>
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No matching orders.
+            </div>
           ) : (
-            <div className="chart-box">
+            <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart
                   data={data.ordersByStatus}
                   margin={{ top: 8, right: 12, left: -16, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e6e1" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e3de" vertical={false} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
-                    axisLine={{ stroke: '#e2e6e1' }}
+                    axisLine={{ stroke: '#d5d7d0' }}
                     interval={0}
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fontSize: 11, fill: '#5a6863' }}
+                    tick={{ fontSize: 11, fill: '#56575e' }}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -262,8 +274,8 @@ export function OrdersCharts({ data, currency }: OrdersChartsProps) {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </section>
   );
 }
