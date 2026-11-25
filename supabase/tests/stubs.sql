@@ -21,3 +21,16 @@ begin
   end if;
 end
 $$;
+
+create schema if not exists auth;
+
+create or replace function auth.uid()
+returns uuid
+language sql
+stable
+as $$
+  select null::uuid;
+$$;
+
+grant usage on schema auth to anon, authenticated, service_role;
+grant execute on function auth.uid() to anon, authenticated, service_role;
