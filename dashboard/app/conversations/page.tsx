@@ -3,8 +3,12 @@ import { Nav } from '@/components/Nav';
 import { formatDateTime, one } from '@/lib/format';
 import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 import { LiveRefresh } from '@/components/LiveRefresh';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow, parsePage, slicePage } from '@/lib/pagination';
 
 export const dynamic = 'force-dynamic';
+
+const CONVERSATIONS_PAGE_SIZE = 20;
 
 type CustomerRow = { name: string; tiers: { name: string } | { name: string }[] | null };
 type ConversationRow = { id: string; created_at: string; customers: CustomerRow | CustomerRow[] | null };
@@ -24,7 +28,11 @@ function previewText(msg: MessageRow): string {
   return normalized.length <= 80 ? normalized : `${normalized.slice(0, 77).trimEnd()}…`;
 }
 
-export default async function ConversationsPage() {
+export default async function ConversationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { supabase, user } = await requireUser();
 
   const [conversationsRes, messagesRes, ordersRes] = await Promise.all([
@@ -70,6 +78,7 @@ export default async function ConversationsPage() {
       };
     })
     .sort((a, b) => b.sortAt - a.sortAt);
+  const pages = pageWindow(parsePage(await searchParams), rows.length, CONVERSATIONS_PAGE_SIZE);
 
   return (
     <>
@@ -102,7 +111,7 @@ export default async function ConversationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {slicePage(rows, pages).map((row) => (
                     <tr key={row.id}>
                       <td><Link href={`/conversations/${row.id}`} className="row-link">{row.customerName}</Link></td>
                       <td>{row.tierName ? <span className="badge badge-tier">{row.tierName}</span> : '—'}</td>
@@ -121,6 +130,7 @@ export default async function ConversationsPage() {
                 </tbody>
               </table>
             </div>
+            <Pagination pages={pages} basePath="/conversations" itemLabel="conversations" />
           </div>
         )}
       </main>

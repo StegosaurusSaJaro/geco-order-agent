@@ -5,14 +5,19 @@ import { OrdersFilters } from '@/components/OrdersFilters';
 import { formatCurrency, formatDateTime, shortId, statusLabel } from '@/lib/format';
 import {
   buildChartData,
+  buildFilterQuery,
   fetchOrdersData,
   hasActiveFilters,
   parseOrderFilters,
 } from '@/lib/orders';
 import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 import { LiveRefresh } from '@/components/LiveRefresh';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow, parsePage, slicePage } from '@/lib/pagination';
 
 export const dynamic = 'force-dynamic';
+
+const ORDERS_PAGE_SIZE = 20;
 
 type OrdersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -20,13 +25,17 @@ type OrdersPageProps = {
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const { supabase, user } = await requireUser();
-  const filters = parseOrderFilters(await searchParams);
+  const params = await searchParams;
+  const filters = parseOrderFilters(params);
   const { orders, lines, tiers, error } = await fetchOrdersData(supabase, filters);
 
   const chartData = buildChartData(orders, lines, filters);
   const currency = orders[0]?.currency ?? 'USD';
   const totalSales = Math.round(orders.reduce((sum, order) => sum + order.total, 0) * 100) / 100;
   const filtered = hasActiveFilters(filters);
+  const pages = pageWindow(parsePage(params), orders.length, ORDERS_PAGE_SIZE);
+  const pageOrders = slicePage(orders, pages);
+  const filterParams = Object.fromEntries(new URLSearchParams(buildFilterQuery(filters)));
 
   return (
     <>
@@ -83,7 +92,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
+                  {pageOrders.map((order) => (
                     <tr key={order.id}>
                       <td>
                         <Link href={`/orders/${order.id}`} className="row-link">
@@ -112,6 +121,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
               </table>
             </div>
           )}
+          <Pagination pages={pages} basePath="/orders" params={filterParams} itemLabel="orders" />
         </div>
       </main>
     </>
