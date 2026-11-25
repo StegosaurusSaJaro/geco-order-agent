@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { AlertCircle, ArrowLeft, MessageSquare, Paperclip } from 'lucide-react';
+import { AlertCircle, ArrowLeft, MessageSquare, Paperclip, Printer } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { LiveRefresh } from '@/components/LiveRefresh';
 import { StatusBadge, TierBadge } from '@/components/StatusBadge';
@@ -190,6 +190,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               View full chat
             </Link>
           </Button>
+          {order.status === 'confirmed' || order.status === 'fulfilled' ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/orders/${order.id}/receipt`}>
+                <Printer className="size-3.5" />
+                Print receipt
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
