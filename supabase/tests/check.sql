@@ -404,6 +404,10 @@ begin
     raise exception 'anon unexpectedly has UPDATE column privilege on screening_log';
   end if;
 
+  if has_function_privilege('anon', 'public.review_flag(bigint, text)', 'EXECUTE') then
+    raise exception 'anon unexpectedly has EXECUTE privilege on review_flag';
+  end if;
+
   begin
     insert into screening_log (telegram_user_id, decision, reason, latency_ms)
     values (999001, 'spam', 'test spam 1', 10)
