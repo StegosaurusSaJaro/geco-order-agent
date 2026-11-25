@@ -197,39 +197,41 @@ def receipt_button(order_id: str) -> InlineKeyboardMarkup:
 
 async def process_receipts(app: Application, db: Database) -> int:
     sent = 0
-    seen: set[str] = set()
-    while (order_id := db.claim_due_receipt_order()) is not None:
-        if order_id in seen:
-            break
-        seen.add(order_id)
-        order = db.receipt_data(order_id)
-        if order is None:
-            continue
-        pdf_bytes = build_receipt_pdf(order)
-        file_name = f"receipt-{order_ref(order)}.pdf"
-        if order["telegram_chat_id"] > 0:
+    failed: list[str] = []
+    try:
+        while (order_id := db.claim_due_receipt_order()) is not None:
             try:
-                await app.bot.send_document(
-                    chat_id=order["telegram_chat_id"],
-                    document=io.BytesIO(pdf_bytes),
-                    filename=file_name,
-                    reply_markup=receipt_button(order_id),
+                order = db.receipt_data(order_id)
+                if order is None:
+                    continue
+                pdf_bytes = build_receipt_pdf(order)
+                file_name = f"receipt-{order_ref(order)}.pdf"
+                if order["telegram_chat_id"] > 0:
+                    await app.bot.send_document(
+                        chat_id=order["telegram_chat_id"],
+                        document=io.BytesIO(pdf_bytes),
+                        filename=file_name,
+                        reply_markup=receipt_button(order_id),
+                    )
+                msg_id = db.save_message(
+                    order["conversation_id"],
+                    "out",
+                    "bot",
+                    "file",
+                    None,
+                    file_name=file_name,
+                    file_mime="application/pdf",
                 )
+                db.link_messages(order_id, [msg_id])
+                sent += 1
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 log.exception("Failed to send receipt for order %s", order_id)
-                db.clear_receipt_sent(order_id)
-                break
-        msg_id = db.save_message(
-            order["conversation_id"],
-            "out",
-            "bot",
-            "file",
-            None,
-            file_name=file_name,
-            file_mime="application/pdf",
-        )
-        db.link_messages(order_id, [msg_id])
-        sent += 1
+                failed.append(order_id)
+    finally:
+        for failed_id in failed:
+            db.clear_receipt_sent(failed_id)
     return sent
 
 

@@ -211,3 +211,61 @@ def test_config_reads_poll_seconds(monkeypatch):
 
     monkeypatch.setenv("POLL_SECONDS", "2.5")
     assert config.load_settings().poll_seconds == 2.5
+
+
+BLOCKED_CHAT, OK_CHAT = 555, 777
+
+
+class BlockedChatBot:
+    def __init__(self):
+        self.calls = []
+
+    async def send_document(self, **kwargs):
+        if kwargs["chat_id"] == BLOCKED_CHAT:
+            raise RuntimeError("Forbidden: bot was blocked by the user")
+        self.calls.append(kwargs)
+
+
+def test_one_failing_chat_does_not_block_others(bot, db, reader, monkeypatch):
+    mark_existing_sent(db)
+    blocked = create_confirmed_order(bot, db, reader, monkeypatch, user_id=CAFE, chat_id=BLOCKED_CHAT)
+    ok = create_confirmed_order(bot, db, reader, monkeypatch, user_id=HOTEL, chat_id=OK_CHAT)
+    app = SimpleNamespace(bot=BlockedChatBot())
+    for _ in range(3):
+        run(main.process_receipts(app, db))
+    assert scalar(db, "select receipt_sent_at is not null from orders where id = %s", ok) is True
+    assert [c["chat_id"] for c in app.bot.calls] == [OK_CHAT]
+    assert scalar(db, "select receipt_sent_at from orders where id = %s", blocked) is None
+
+
+def test_pdf_build_error_retries(bot, db, reader, monkeypatch):
+    mark_existing_sent(db)
+    order_id = create_confirmed_order(bot, db, reader, monkeypatch, chat_id=POSITIVE_CHAT)
+    real_build = main.build_receipt_pdf
+    attempts = 0
+
+    def flaky_build(order):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("pdf error")
+        return real_build(order)
+
+    monkeypatch.setattr(main, "build_receipt_pdf", flaky_build)
+    app = fake_app()
+
+    first = run(main.process_receipts(app, db))
+    assert first == 0
+    assert app.bot.calls == []
+    assert scalar(db, "select receipt_sent_at from orders where id = %s", order_id) is None
+    assert scalar(
+        db,
+        "select count(*) from messages m join order_messages om on om.message_id = m.id"
+        " where om.order_id = %s and m.kind = 'file'",
+        order_id,
+    ) == 0
+
+    second = run(main.process_receipts(app, db))
+    assert second == 1
+    assert len(app.bot.calls) == 1
+    assert scalar(db, "select receipt_sent_at is not null from orders where id = %s", order_id) is True
