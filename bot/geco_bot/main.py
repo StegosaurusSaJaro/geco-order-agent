@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+import io
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
@@ -9,6 +12,7 @@ from geco_bot import orders
 from geco_bot.config import load_settings
 from geco_bot.db import Database
 from geco_bot.reader import Reader, check_lines
+from geco_bot.receipt import build_receipt_pdf, order_ref
 
 log = logging.getLogger(__name__)
 
@@ -22,12 +26,16 @@ CONFIRM_REPLIES = {
 }
 CANCELLED = "Your order is cancelled."
 ALREADY_HANDLED = CONFIRM_REPLIES["handled"]
+RECEIPT_UNAVAILABLE = "Receipt is only available for confirmed orders."
 
 
 @dataclass
 class Reply:
     text: str
     order_id: str | None = None
+    show_receipt_button: bool = False
+    document: bytes | None = None
+    file_name: str | None = None
 
 
 class OrderBot:
@@ -95,17 +103,31 @@ class OrderBot:
             self.db.save_message(conversation_id, "out", "bot", "text", ALREADY_HANDLED)
             return Reply(ALREADY_HANDLED)
         if action == "confirm":
-            text = CONFIRM_REPLIES[
-                self.db.confirm(
-                    order_id,
-                    customer.id,
-                    self.review_threshold,
-                    self.quantity_factor,
-                    self.quantity_min_history,
-                )
-            ]
-        else:
-            text = CANCELLED if self.db.cancel(order_id, customer.id) else ALREADY_HANDLED
+            outcome = self.db.confirm(
+                order_id,
+                customer.id,
+                self.review_threshold,
+                self.quantity_factor,
+                self.quantity_min_history,
+            )
+            text = CONFIRM_REPLIES[outcome]
+            reply_id = self.db.save_message(conversation_id, "out", "bot", "text", text)
+            self.db.link_messages(order_id, [pressed_id, reply_id])
+            return Reply(text, order_id, show_receipt_button=(outcome == "confirmed"))
+        if action == "receipt":
+            order = self.db.receipt_data(order_id)
+            if order is None or order["customer_id"] != customer.id or order["status"] not in ("confirmed", "fulfilled"):
+                reply_id = self.db.save_message(conversation_id, "out", "bot", "text", RECEIPT_UNAVAILABLE)
+                self.db.link_messages(order_id, [pressed_id, reply_id])
+                return Reply(RECEIPT_UNAVAILABLE)
+            pdf_bytes = build_receipt_pdf(order)
+            file_name = f"receipt-{order_ref(order)}.pdf"
+            reply_id = self.db.save_message(
+                conversation_id, "out", "bot", "file", None, file_name=file_name, file_mime="application/pdf"
+            )
+            self.db.link_messages(order_id, [pressed_id, reply_id])
+            return Reply("", order_id, show_receipt_button=True, document=pdf_bytes, file_name=file_name)
+        text = CANCELLED if self.db.cancel(order_id, customer.id) else ALREADY_HANDLED
         reply_id = self.db.save_message(conversation_id, "out", "bot", "text", text)
         self.db.link_messages(order_id, [pressed_id, reply_id])
         return Reply(text, order_id)
@@ -167,7 +189,47 @@ def buttons(order_id: str) -> InlineKeyboardMarkup:
     ]])
 
 
-def build_app(token: str, bot: OrderBot) -> Application:
+def receipt_button(order_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("Get receipt", callback_data=f"receipt:{order_id}"),
+    ]])
+
+
+async def process_receipts(app: Application, db: Database) -> int:
+    sent = 0
+    while (order_id := db.claim_due_receipt_order()) is not None:
+        order = db.receipt_data(order_id)
+        if order is None:
+            continue
+        pdf_bytes = build_receipt_pdf(order)
+        file_name = f"receipt-{order_ref(order)}.pdf"
+        if order["telegram_chat_id"] > 0:
+            try:
+                await app.bot.send_document(
+                    chat_id=order["telegram_chat_id"],
+                    document=io.BytesIO(pdf_bytes),
+                    filename=file_name,
+                    reply_markup=receipt_button(order_id),
+                )
+            except Exception:
+                log.exception("Failed to send receipt for order %s", order_id)
+                db.clear_receipt_sent(order_id)
+                break
+        msg_id = db.save_message(
+            order["conversation_id"],
+            "out",
+            "bot",
+            "file",
+            None,
+            file_name=file_name,
+            file_mime="application/pdf",
+        )
+        db.link_messages(order_id, [msg_id])
+        sent += 1
+    return sent
+
+
+def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Application:
     async def text_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
         reply = await bot.on_text(update.effective_user.id, msg.chat_id, msg.text, msg.message_id)
@@ -178,8 +240,20 @@ def build_app(token: str, bot: OrderBot) -> Application:
         await query.answer()
         action, order_id = query.data.split(":", 1)
         reply = await bot.on_button(update.effective_user.id, query.message.chat_id, action, order_id)
-        await query.edit_message_reply_markup(reply_markup=None)
-        await query.message.reply_text(reply.text)
+        if action != "receipt":
+            await query.edit_message_reply_markup(reply_markup=None)
+        if reply.document is not None:
+            if query.message.chat_id > 0:
+                await query.message.reply_document(
+                    document=io.BytesIO(reply.document),
+                    filename=reply.file_name,
+                    reply_markup=receipt_button(order_id),
+                )
+        else:
+            await query.message.reply_text(
+                reply.text,
+                reply_markup=receipt_button(order_id) if reply.show_receipt_button else None,
+            )
 
     async def file_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
@@ -200,9 +274,29 @@ def build_app(token: str, bot: OrderBot) -> Application:
         )
         await msg.reply_text(reply.text, reply_markup=buttons(reply.order_id) if reply.order_id else None)
 
-    app = Application.builder().token(token).build()
+    async def poll_loop(application: Application):
+        while True:
+            try:
+                await process_receipts(application, bot.db)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Receipt poll failed")
+            await asyncio.sleep(poll_seconds)
+
+    async def post_init(application: Application):
+        application.bot_data["receipt_task"] = asyncio.create_task(poll_loop(application))
+
+    async def post_shutdown(application: Application):
+        task = application.bot_data.pop("receipt_task", None)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    app = Application.builder().token(token).post_init(post_init).post_shutdown(post_shutdown).build()
     app.add_handler(MessageHandler(filters.TEXT, text_handler))
-    app.add_handler(CallbackQueryHandler(button_handler, pattern=r"^(confirm|cancel):"))
+    app.add_handler(CallbackQueryHandler(button_handler, pattern=r"^(confirm|cancel|receipt):"))
     app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, file_handler))
     return app
 
@@ -222,6 +316,7 @@ def main():
             settings.quantity_factor,
             settings.quantity_min_history,
         ),
+        poll_seconds=settings.poll_seconds,
     ).run_polling()
 
 

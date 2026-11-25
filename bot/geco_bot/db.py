@@ -274,6 +274,52 @@ class Database:
             ).fetchone()
         return row is not None
 
+    def claim_due_receipt_order(self) -> str | None:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "update orders set receipt_sent_at = now()"
+                " where id = ("
+                "     select id from orders"
+                "     where status = 'confirmed' and receipt_sent_at is null"
+                "     order by confirmed_at"
+                "     limit 1"
+                "     for update skip locked"
+                " ) returning id::text"
+            ).fetchone()
+        return row["id"] if row else None
+
+    def clear_receipt_sent(self, order_id: str) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                "update orders set receipt_sent_at = null where id = %s",
+                (order_id,),
+            )
+
+    def receipt_data(self, order_id: str) -> dict | None:
+        with self.pool.connection() as conn:
+            order = conn.execute(
+                "select o.id::text, o.customer_id::text, o.conversation_id::text, o.status::text,"
+                " o.po_number, o.version, o.currency, o.total, o.confirmed_at, o.created_at,"
+                " c.name as customer_name, t.name as tier_name, conv.telegram_chat_id"
+                " from orders o"
+                " join customers c on c.id = o.customer_id"
+                " join tiers t on t.id = c.tier_id"
+                " join conversations conv on conv.id = o.conversation_id"
+                " where o.id = %s",
+                (order_id,),
+            ).fetchone()
+            if order is None:
+                return None
+            lines = conn.execute(
+                "select ol.sku, p.name as product_name, ol.quantity, ol.unit_code, ol.unit_price, ol.line_total"
+                " from order_lines ol"
+                " join products p on p.sku = ol.sku"
+                " where ol.order_id = %s and ol.version = %s"
+                " order by ol.line_no",
+                (order_id, order["version"]),
+            ).fetchall()
+        return {**order, "lines": lines}
+
 
 class StockShort(Exception):
     pass
