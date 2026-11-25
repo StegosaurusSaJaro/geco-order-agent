@@ -17,6 +17,7 @@ const REASON_LABELS: Record<string, string> = {
   over_threshold: 'Over the $2,000 review limit',
   stock: 'Not enough stock',
   price_mismatch: 'Price mismatch',
+  quantity: 'Unusual quantity',
 };
 
 export function reviewReasonLabel(reason: string): string {
