@@ -1,0 +1,25 @@
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+
+@dataclass(frozen=True)
+class Settings:
+    telegram_bot_token: str
+    db_url: str
+    model: str
+    fallback_model: str
+
+
+def load_settings() -> Settings:
+    load_dotenv(ENV_FILE)
+    return Settings(
+        telegram_bot_token=os.environ["TELEGRAM_BOT_TOKEN"],
+        db_url=os.environ["SUPABASE_DB_URL"],
+        model=os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        fallback_model=os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite"),
+    )
