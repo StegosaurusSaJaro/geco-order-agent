@@ -2,8 +2,12 @@ import { Nav } from '@/components/Nav';
 import { one } from '@/lib/format';
 import { requireUser } from '@/lib/supabase';
 import { StockRow } from './StockRow';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow, parsePage, slicePage } from '@/lib/pagination';
 
 export const dynamic = 'force-dynamic';
+
+const INVENTORY_PAGE_SIZE = 20;
 
 type ProductRow = {
   sku: string;
@@ -13,7 +17,11 @@ type ProductRow = {
   units_of_measure: { name: string } | { name: string }[] | null;
 };
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { supabase, user } = await requireUser();
   const { data, error } = await supabase
     .from('products')
@@ -28,6 +36,7 @@ export default async function InventoryPage() {
     unitName: one(row.units_of_measure)?.name ?? null,
     stockQty: Number(row.stock_qty),
   }));
+  const pages = pageWindow(parsePage(await searchParams), products.length, INVENTORY_PAGE_SIZE);
 
   return (
     <>
@@ -59,7 +68,7 @@ export default async function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
+                  {slicePage(products, pages).map((product) => (
                     <StockRow
                       key={product.sku}
                       sku={product.sku}
@@ -72,6 +81,7 @@ export default async function InventoryPage() {
                 </tbody>
               </table>
             </div>
+            <Pagination pages={pages} basePath="/inventory" itemLabel="products" />
           </div>
         )}
       </main>

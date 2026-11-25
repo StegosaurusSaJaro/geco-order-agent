@@ -4,8 +4,12 @@ import { Nav } from '@/components/Nav';
 import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
 import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 import { LiveRefresh } from '@/components/LiveRefresh';
+import { Pagination } from '@/components/Pagination';
+import { pageWindow, parsePage } from '@/lib/pagination';
 
 export const dynamic = 'force-dynamic';
+
+const MESSAGES_PAGE_SIZE = 50;
 
 type CustomerRow = { name: string; kind: string | null; tiers: { name: string } | { name: string }[] | null };
 type ConversationDetailRow = { id: string; created_at: string; customers: CustomerRow | CustomerRow[] | null };
@@ -21,8 +25,15 @@ type MessageDetailRow = {
 type LinkedOrder = { id: string; status: string; total: number | string; currency: string; po_number: string | null };
 type OrderMessageLinkRow = { message_id: string; orders: LinkedOrder | LinkedOrder[] | null };
 
-export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ConversationDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const requestedPage = parsePage(await searchParams);
   const { supabase, user } = await requireUser();
 
   const { data: conversationData, error: conversationError } = await supabase
@@ -48,16 +59,30 @@ export default async function ConversationDetailPage({ params }: { params: Promi
   const customer = one(conversation.customers);
   const tier = one(customer?.tiers);
 
-  const { data: messagesData, error: messagesError } = await supabase
+  const { count: messageTotal, error: countError } = await supabase
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', id);
+
+  const pages = pageWindow(requestedPage, messageTotal ?? 0, MESSAGES_PAGE_SIZE);
+
+  const { data: messagesData, error: pageError } = await supabase
     .from('messages')
     .select('id, direction, author, kind, body, file_name, created_at')
     .eq('conversation_id', id)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(pages.from, Math.max(pages.from, pages.to - 1));
 
-  const messages = (messagesData ?? []) as MessageDetailRow[];
+  const { count: orderTotal, error: orderCountError } = await supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', id);
+
+  const messagesError = countError || pageError || orderCountError;
+  const linkedOrderCount = orderTotal ?? 0;
+  const messages = ((messagesData ?? []) as MessageDetailRow[]).reverse();
   const ordersByMessage = new Map<string, LinkedOrder[]>();
-  const distinctOrderIds = new Set<string>();
   let linksError: { message: string } | null = null;
 
   if (!messagesError && messages.length > 0) {
@@ -72,7 +97,6 @@ export default async function ConversationDetailPage({ params }: { params: Promi
       for (const link of (linkData ?? []) as OrderMessageLinkRow[]) {
         const linkedOrder = one(link.orders);
         if (!linkedOrder) continue;
-        distinctOrderIds.add(linkedOrder.id);
         const existing = ordersByMessage.get(link.message_id) ?? [];
         if (!existing.some((o) => o.id === linkedOrder.id)) {
           existing.push(linkedOrder);
@@ -100,7 +124,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
             {tier?.name ? <span className="badge badge-tier">{tier.name}</span> : null}
           </div>
           <p className="page-subtitle">
-            {messages.length} {messages.length === 1 ? 'message' : 'messages'} · {distinctOrderIds.size} linked {distinctOrderIds.size === 1 ? 'order' : 'orders'}
+            {pages.total} {pages.total === 1 ? 'message' : 'messages'} · {linkedOrderCount} linked {linkedOrderCount === 1 ? 'order' : 'orders'}
           </p>
         </div>
 
@@ -147,6 +171,13 @@ export default async function ConversationDetailPage({ params }: { params: Promi
                 </div>
               )}
             </div>
+            <Pagination
+              pages={pages}
+              basePath={`/conversations/${id}`}
+              itemLabel="messages"
+              previousLabel="← Newer messages"
+              nextLabel="Older messages →"
+            />
           </div>
         )}
       </main>
