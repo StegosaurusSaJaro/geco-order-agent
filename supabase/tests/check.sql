@@ -4,6 +4,12 @@ declare
   v_msg_id uuid;
   v_other_order_id uuid;
   v_stock numeric(10,2);
+  v_flag_1 bigint;
+  v_flag_2 bigint;
+  v_flag_3 bigint;
+  v_flag_result text;
+  v_flag_status text;
+  v_flag_reviewed_at timestamptz;
 begin
   select count(*) into v_count
   from pg_class c
@@ -374,6 +380,101 @@ begin
     end;
 
     raise exception using errcode = 'P9999', message = 'rollback step 0 test writes';
+  exception
+    when sqlstate 'P9999' then
+      null;
+  end;
+  reset role;
+
+  select count(*) into v_count
+  from unnest(array['status', 'reviewed_at', 'reviewed_by']) as cols(col)
+  where not has_column_privilege('authenticated', 'screening_log', cols.col, 'UPDATE');
+  if v_count > 0 then
+    raise exception 'authenticated missing UPDATE column privilege on screening_log (count=%)', v_count;
+  end if;
+
+  select count(*) into v_count
+  from unnest(array['telegram_user_id', 'decision', 'reason', 'latency_ms', 'message_id', 'conversation_id']) as cols(col)
+  where has_column_privilege('authenticated', 'screening_log', cols.col, 'UPDATE');
+  if v_count > 0 then
+    raise exception 'authenticated has unexpected UPDATE column privilege on screening_log (count=%)', v_count;
+  end if;
+
+  if has_any_column_privilege('anon', 'screening_log', 'UPDATE') then
+    raise exception 'anon unexpectedly has UPDATE column privilege on screening_log';
+  end if;
+
+  begin
+    insert into screening_log (telegram_user_id, decision, reason, latency_ms)
+    values (999001, 'spam', 'test spam 1', 10)
+    returning id into v_flag_1;
+
+    insert into screening_log (telegram_user_id, decision, reason, latency_ms)
+    values (999002, 'abuse', 'test abuse 2', 12)
+    returning id into v_flag_2;
+
+    insert into screening_log (telegram_user_id, decision, reason, latency_ms)
+    values (999003, 'injection', 'test injection 3', 15)
+    returning id into v_flag_3;
+
+    set local role authenticated;
+
+    v_flag_result := review_flag(v_flag_1, 'release');
+    if v_flag_result <> 'released' then
+      raise exception 'Expected review_flag release to return released, got %', v_flag_result;
+    end if;
+
+    select status, reviewed_at into v_flag_status, v_flag_reviewed_at
+    from screening_log
+    where id = v_flag_1;
+    if v_flag_status <> 'released' or v_flag_reviewed_at is null then
+      raise exception 'Expected screening_log status=released and reviewed_at not null, got status=% reviewed_at=%', v_flag_status, v_flag_reviewed_at;
+    end if;
+
+    v_flag_result := review_flag(v_flag_1, 'release');
+    if v_flag_result <> 'handled' then
+      raise exception 'Expected second review_flag call to return handled, got %', v_flag_result;
+    end if;
+
+    v_flag_result := review_flag(v_flag_2, 'dismiss');
+    if v_flag_result <> 'dismissed' then
+      raise exception 'Expected review_flag dismiss to return dismissed, got %', v_flag_result;
+    end if;
+
+    select status into v_flag_status
+    from screening_log
+    where id = v_flag_2;
+    if v_flag_status <> 'dismissed' then
+      raise exception 'Expected screening_log status=dismissed, got %', v_flag_status;
+    end if;
+
+    begin
+      perform review_flag(v_flag_3, 'invalid');
+      raise exception 'Expected invalid_parameter_value for invalid review_flag decision';
+    exception
+      when invalid_parameter_value then
+        null;
+    end;
+
+    begin
+      update screening_log set decision = 'allow' where id = v_flag_3;
+      raise exception 'Expected insufficient_privilege when authenticated updates screening_log.decision';
+    exception
+      when insufficient_privilege then
+        null;
+    end;
+
+    set local role anon;
+
+    begin
+      perform review_flag(v_flag_3, 'release');
+      raise exception 'Expected insufficient_privilege when anon calls review_flag';
+    exception
+      when insufficient_privilege then
+        null;
+    end;
+
+    raise exception using errcode = 'P9999', message = 'rollback flagged messages test writes';
   exception
     when sqlstate 'P9999' then
       null;

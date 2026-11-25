@@ -39,6 +39,7 @@ try {
     'supabase/migrations/20261125000000_review_order.sql',
     'supabase/migrations/20261126000000_realtime.sql',
     'supabase/migrations/20261127000000_receipts.sql',
+    'supabase/migrations/20261127000100_flagged_messages.sql',
     'supabase/seed.sql',
     'supabase/stock.sql',
     'supabase/tests/check.sql'
