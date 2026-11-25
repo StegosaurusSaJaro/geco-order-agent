@@ -131,3 +131,38 @@ def test_button_isolated_across_chats(bot, db, reader, monkeypatch):
     assert reply.text == main.ALREADY_HANDLED
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "draft"
     assert scalar(db, "select count(*) from order_messages where order_id = %s", draft.order_id) == 2
+
+
+def test_broken_spreadsheet_replies_read_failed(bot, db, reader, monkeypatch):
+    calls = capture_agent(reader, monkeypatch, intent="order", lines=oat_lines(), reply="Got it.")
+    before_orders = scalar(db, "select count(*) from orders")
+    cases = [
+        ("corrupt.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", b"not a valid zip"),
+        ("corrupt.xls", "application/vnd.ms-excel", b"not a valid xls"),
+    ]
+    for idx, (file_name, file_mime, data) in enumerate(cases, start=1):
+        reply = run(bot.on_file(CAFE, CHAT, "file", None, file_name, file_mime, data))
+        assert reply.text == main.READ_FAILED
+        assert reply.order_id is None
+        assert len(calls) == 0
+        assert scalar(db, "select count(*) from orders") == before_orders
+        assert scalar(db, "select count(*) from messages where direction = 'out' and body = %s", main.READ_FAILED) == idx
+
+
+def test_image_document_mime_from_extension(bot, db, reader, monkeypatch):
+    cases = [
+        ("order_photo.jpg", "application/octet-stream", "image/jpeg"),
+        ("scan.JPEG", None, "image/jpeg"),
+        ("ORDER_SCAN.PNG", "application/octet-stream", "image/png"),
+        ("ORDER_SCAN.PNG", None, "image/png"),
+        ("order.webp", None, "image/webp"),
+        ("photo.webp", "IMAGE/WEBP", "image/webp"),
+    ]
+    for file_name, file_mime, expected_mime in cases:
+        calls = capture_agent(reader, monkeypatch, intent="order", lines=oat_lines(), reply="Got it.")
+        reply = run(bot.on_file(CAFE, CHAT, "file", None, file_name, file_mime, b"fake-image-bytes"))
+        assert reply.order_id is not None
+        assert len(calls) == 1
+        parts = calls[0][1]
+        assert any(p.inline_data and p.inline_data.mime_type == expected_mime for p in parts)
+        assert scalar(db, "select source::text from orders where id = %s", reply.order_id) == "photo"
