@@ -20,6 +20,7 @@ SQL_FILES = [
     "supabase/migrations/20261123000000_init.sql",
     "supabase/migrations/20261124000000_staff_order_message_links.sql",
     "supabase/migrations/20261124000100_product_stock.sql",
+    "supabase/migrations/20261125000000_review_order.sql",
     "supabase/seed.sql",
     "supabase/stock.sql",
 ]

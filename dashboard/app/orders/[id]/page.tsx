@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Nav } from '@/components/Nav';
 import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
 import { requireUser } from '@/lib/supabase';
+import { OrderReviewActions, reviewReasonLabel } from './OrderReviewActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,16 +13,24 @@ type OrderDetailRow = {
   version: number; currency: string; total: number | string; review_reasons: string[] | null;
   confirmed_at: string | null; created_at: string; customers: CustomerRow | CustomerRow[] | null;
 };
+type ProductInfo = { name: string; stock_qty: number | string };
 type OrderLineRow = {
   line_no: number; sku: string; quantity: number | string; unit_code: string;
   unit_price: number | string; line_total: number | string;
-  products: { name: string } | { name: string }[] | null;
+  products: ProductInfo | ProductInfo[] | null;
 };
 type MessageRow = {
   id: string; direction: string; author: string; kind: string;
   body: string | null; file_name: string | null; created_at: string;
 };
 type OrderMessageLinkRow = { message_id: string; messages: MessageRow | MessageRow[] | null };
+
+function formatQty(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+}
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -49,7 +58,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const [linesRes, linksRes] = await Promise.all([
     supabase
       .from('order_lines')
-      .select('line_no, sku, quantity, unit_code, unit_price, line_total, products(name)')
+      .select('line_no, sku, quantity, unit_code, unit_price, line_total, products(name, stock_qty)')
       .eq('order_id', id).eq('version', order.version).order('line_no', { ascending: true }),
     supabase
       .from('order_messages')
@@ -91,6 +100,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
+        <OrderReviewActions
+          orderId={order.id}
+          status={order.status}
+          reviewReasons={reviewReasons}
+        />
+
         <section className="card">
           <div className="card-header">
             <span>Order Summary</span>
@@ -105,10 +120,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 </div>
               ))}
             </div>
-            {reviewReasons.length > 0 ? (
+            {order.status !== 'needs_review' && reviewReasons.length > 0 ? (
               <div className="meta-item" style={{ marginTop: '14px' }}>
                 <span className="meta-label">Review Reasons</span>
-                <div className="msg-tags">{reviewReasons.map((r) => <span key={r} className="badge badge-needs_review">{r}</span>)}</div>
+                <div className="msg-tags">{reviewReasons.map((r) => <span key={r} className="badge badge-needs_review">{reviewReasonLabel(r)}</span>)}</div>
               </div>
             ) : null}
           </div>
@@ -129,25 +144,37 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <thead>
                   <tr>
                     <th className="num">#</th><th>SKU</th><th>Product</th><th className="num">Qty</th>
-                    <th>Unit</th><th className="num">Unit Price</th><th className="num">Line Total</th>
+                    <th className="num">Stock</th><th>Unit</th><th className="num">Unit Price</th><th className="num">Line Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.line_no}>
-                      <td className="num">{line.line_no}</td>
-                      <td className="mono">{line.sku}</td>
-                      <td>{one(line.products)?.name ?? '—'}</td>
-                      <td className="num">{line.quantity}</td>
-                      <td>{line.unit_code}</td>
-                      <td className="num">{formatCurrency(line.unit_price, order.currency)}</td>
-                      <td className="num">{formatCurrency(line.line_total, order.currency)}</td>
-                    </tr>
-                  ))}
+                  {lines.map((line) => {
+                    const product = one(line.products);
+                    const qty = Number(line.quantity);
+                    const stockQty = product?.stock_qty !== undefined && product?.stock_qty !== null ? Number(product.stock_qty) : null;
+                    const isShort = stockQty !== null && Number.isFinite(stockQty) && Number.isFinite(qty) && stockQty < qty;
+                    return (
+                      <tr key={line.line_no} className={isShort ? 'row-short' : undefined}>
+                        <td className="num">{line.line_no}</td>
+                        <td className="mono">{line.sku}</td>
+                        <td>{product?.name ?? '—'}</td>
+                        <td className="num">{formatQty(line.quantity)}</td>
+                        <td className="num">
+                          <span className="stock-cell">
+                            <span>{formatQty(product?.stock_qty)}</span>
+                            {isShort ? <span className="badge badge-short">Short</span> : null}
+                          </span>
+                        </td>
+                        <td>{line.unit_code}</td>
+                        <td className="num">{formatCurrency(line.unit_price, order.currency)}</td>
+                        <td className="num">{formatCurrency(line.line_total, order.currency)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={6} className="num" style={{ fontWeight: 600 }}>Total</td>
+                    <td colSpan={7} className="num" style={{ fontWeight: 600 }}>Total</td>
                     <td className="num" style={{ fontWeight: 700 }}>{formatCurrency(order.total, order.currency)}</td>
                   </tr>
                 </tfoot>
