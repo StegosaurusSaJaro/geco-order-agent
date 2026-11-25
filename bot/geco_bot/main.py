@@ -197,7 +197,11 @@ def receipt_button(order_id: str) -> InlineKeyboardMarkup:
 
 async def process_receipts(app: Application, db: Database) -> int:
     sent = 0
+    seen: set[str] = set()
     while (order_id := db.claim_due_receipt_order()) is not None:
+        if order_id in seen:
+            break
+        seen.add(order_id)
         order = db.receipt_data(order_id)
         if order is None:
             continue
