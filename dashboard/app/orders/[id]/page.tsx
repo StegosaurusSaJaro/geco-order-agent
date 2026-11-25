@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { AlertCircle, ArrowLeft, MessageSquare, Paperclip } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronDown, MessageSquare, Paperclip } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { LiveRefresh } from '@/components/LiveRefresh';
 import { StatusBadge, TierBadge } from '@/components/StatusBadge';
@@ -342,74 +342,79 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card className="gap-0 py-0 overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b py-4">
-          <CardTitle className="text-base">Linked Messages</CardTitle>
-          <CardDescription>
-            {linkedMessages.length} {linkedMessages.length === 1 ? 'message' : 'messages'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="py-5">
-          {linksRes.error ? (
-            <Alert
-              variant="destructive"
-              className="border-destructive/40 bg-[var(--destructive-soft)]"
-            >
-              <AlertCircle className="size-4" />
-              <AlertDescription>
-                Failed to load linked messages: {linksRes.error.message}
-              </AlertDescription>
-            </Alert>
-          ) : linkedMessages.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No messages linked to this order.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {linkedMessages.map((msg) => {
-                const isIncoming = msg.direction === 'in';
-                return (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      'flex flex-col gap-1 min-w-0',
-                      isIncoming ? 'items-start' : 'items-end'
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground/80">
-                        {statusLabel(msg.author)}
-                      </span>
-                      <span>·</span>
-                      <span>{msg.direction}</span>
-                      <span>·</span>
-                      <span>{msg.kind}</span>
-                      <span>·</span>
-                      <span>{formatDateTime(msg.created_at)}</span>
-                    </div>
+        <details className="group">
+          <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-6 py-4 list-none [&::-webkit-details-marker]:hidden group-open:border-b hover:bg-muted/40 transition-colors">
+            <span className="text-base leading-none font-semibold">Linked Messages</span>
+            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>
+                {linkedMessages.length} {linkedMessages.length === 1 ? 'message' : 'messages'}
+              </span>
+              <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+          <CardContent className="py-5">
+            {linksRes.error ? (
+              <Alert
+                variant="destructive"
+                className="border-destructive/40 bg-[var(--destructive-soft)]"
+              >
+                <AlertCircle className="size-4" />
+                <AlertDescription>
+                  Failed to load linked messages: {linksRes.error.message}
+                </AlertDescription>
+              </Alert>
+            ) : linkedMessages.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No messages linked to this order.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {linkedMessages.map((msg) => {
+                  const isIncoming = msg.direction === 'in';
+                  return (
                     <div
+                      key={msg.id}
                       className={cn(
-                        'max-w-full sm:max-w-[85%] rounded-lg border border-border px-3.5 py-2.5 text-sm leading-relaxed break-words',
-                        isIncoming ? 'bg-card' : 'bg-sidebar'
+                        'flex flex-col gap-1 min-w-0',
+                        isIncoming ? 'items-start' : 'items-end'
                       )}
                     >
-                      {msg.file_name ? (
-                        <div className={msg.body ? 'mb-1.5' : undefined}>
-                          <Badge variant="secondary" className="max-w-full gap-1 font-mono text-xs">
-                            <Paperclip className="size-3 shrink-0" />
-                            <span className="truncate">{msg.file_name}</span>
-                          </Badge>
-                        </div>
-                      ) : null}
-                      {msg.body ? (
-                        <div className="whitespace-pre-wrap break-words">{msg.body}</div>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground/80">
+                          {statusLabel(msg.author)}
+                        </span>
+                        <span>·</span>
+                        <span>{msg.direction}</span>
+                        <span>·</span>
+                        <span>{msg.kind}</span>
+                        <span>·</span>
+                        <span>{formatDateTime(msg.created_at)}</span>
+                      </div>
+                      <div
+                        className={cn(
+                          'max-w-full sm:max-w-[85%] rounded-lg border border-border px-3.5 py-2.5 text-sm leading-relaxed break-words',
+                          isIncoming ? 'bg-card' : 'bg-sidebar'
+                        )}
+                      >
+                        {msg.file_name ? (
+                          <div className={msg.body ? 'mb-1.5' : undefined}>
+                            <Badge variant="secondary" className="max-w-full gap-1 font-mono text-xs">
+                              <Paperclip className="size-3 shrink-0" />
+                              <span className="truncate">{msg.file_name}</span>
+                            </Badge>
+                          </div>
+                        ) : null}
+                        {msg.body ? (
+                          <div className="whitespace-pre-wrap break-words">{msg.body}</div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </details>
       </Card>
     </AppShell>
   );
