@@ -17,6 +17,7 @@ class Settings:
     review_threshold_usd: Decimal
     quantity_factor: Decimal
     quantity_min_history: int
+    poll_seconds: float
 
 
 def load_settings() -> Settings:
@@ -29,4 +30,5 @@ def load_settings() -> Settings:
         review_threshold_usd=Decimal(os.environ.get("REVIEW_THRESHOLD_USD") or "2000"),
         quantity_factor=Decimal(os.environ.get("QUANTITY_FACTOR") or "3"),
         quantity_min_history=int(os.environ.get("QUANTITY_MIN_HISTORY") or "2"),
+        poll_seconds=float(os.environ.get("POLL_SECONDS") or "5"),
     )
