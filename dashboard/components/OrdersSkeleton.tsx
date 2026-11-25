@@ -1,5 +1,4 @@
-import { AppShell } from '@/components/AppShell';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -10,58 +9,57 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-const FILTER_FIELDS = [0, 1, 2, 3];
-const CHART_CARDS = [0, 1, 2, 3];
+const METRIC_TILES = [0, 1, 2];
+const REVIEW_ROWS = [0, 1];
 const TABLE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
-export default function ReportsLoading() {
+export function OrdersSkeleton() {
   return (
-    <AppShell email={undefined} active="reports" breadcrumb={[{ label: 'Reports' }]}>
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="flex flex-col gap-1.5">
-          <Skeleton className="h-7 w-28" />
-          <Skeleton className="h-4 w-44" />
-        </div>
-      </div>
-
-      <Card className="py-4">
-        <CardContent className="px-4 flex flex-col gap-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {FILTER_FIELDS.map((idx) => (
-              <div key={idx} className="flex flex-col gap-1.5">
-                <Skeleton className="h-3.5 w-12" />
-                <Skeleton className="h-9 w-full" />
-              </div>
-            ))}
+    <>
+      <section aria-label="Loading metrics" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {METRIC_TILES.map((idx) => (
+          <div
+            key={idx}
+            className="grid gap-2 rounded-lg border border-border bg-card px-4 py-3.5 shadow-xs"
+          >
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-7 w-12" />
+            <Skeleton className="h-3 w-28" />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-border">
-            <Skeleton className="h-8 w-24" />
-            <div className="flex flex-wrap items-center gap-2">
-              <Skeleton className="h-8 w-24" />
-              <Skeleton className="h-8 w-24" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Loading order charts">
-        {CHART_CARDS.map((idx) => (
-          <Card key={idx} className="py-0 gap-0 min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3.5 w-20" />
-            </CardHeader>
-            <CardContent className="p-4">
-              <Skeleton className="h-[220px] w-full" />
-            </CardContent>
-          </Card>
         ))}
       </section>
 
+      <Card className="py-0 gap-0 overflow-hidden border-amber-300/90">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-amber-200/90 bg-amber-50/90 px-4 py-3">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3.5 w-24" />
+        </CardHeader>
+        <div className="divide-y divide-border">
+          {REVIEW_ROWS.map((idx) => (
+            <div
+              key={idx}
+              className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-5 w-40 rounded-full" />
+              </div>
+              <div className="flex items-center justify-between gap-4 sm:justify-end">
+                <div className="flex flex-col gap-1.5 sm:items-end">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-8 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <Card className="py-0 gap-0 overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3.5 w-40" />
         </CardHeader>
         <Table>
           <TableHeader className="bg-sidebar">
@@ -100,6 +98,6 @@ export default function ReportsLoading() {
           </TableBody>
         </Table>
       </Card>
-    </AppShell>
+    </>
   );
 }
