@@ -113,12 +113,20 @@ class Database:
                 (tier_id,),
             ).fetchall()
 
-    def create_draft(self, customer_id, conversation_id, lines: list[dict], total: Decimal) -> str:
+    def create_draft(
+        self,
+        customer_id,
+        conversation_id,
+        lines: list[dict],
+        total: Decimal,
+        source: str = "text",
+        po_number: str | None = None,
+    ) -> str:
         with self.pool.connection() as conn, conn.transaction():
             order_id = conn.execute(
-                "insert into orders (customer_id, conversation_id, status, source, total)"
-                " values (%s, %s, 'draft', 'text', %s) returning id::text",
-                (customer_id, conversation_id, total),
+                "insert into orders (customer_id, conversation_id, status, source, po_number, total)"
+                " values (%s, %s, 'draft', %s, %s, %s) returning id::text",
+                (customer_id, conversation_id, source, po_number, total),
             ).fetchone()["id"]
             for line_no, line in enumerate(lines, start=1):
                 conn.execute(
@@ -128,6 +136,14 @@ class Database:
                      line["unit_price"], line["line_total"]),
                 )
         return order_id
+
+    def order_belongs_to(self, order_id: str, customer_id: str, conversation_id: str) -> bool:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "select 1 from orders where id = %s and customer_id = %s and conversation_id = %s",
+                (order_id, customer_id, conversation_id),
+            ).fetchone()
+        return row is not None
 
     def confirm(self, order_id: str, customer_id: str) -> str:
         with self.pool.connection() as conn, conn.transaction():
