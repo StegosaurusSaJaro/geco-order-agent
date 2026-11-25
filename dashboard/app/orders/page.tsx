@@ -1,71 +1,107 @@
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
-import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
+import { OrdersCharts } from '@/components/OrdersCharts';
+import { OrdersFilters } from '@/components/OrdersFilters';
+import { formatCurrency, formatDateTime, shortId, statusLabel } from '@/lib/format';
+import {
+  buildChartData,
+  fetchOrdersData,
+  hasActiveFilters,
+  parseOrderFilters,
+} from '@/lib/orders';
 import { requireUser } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-type CustomerRow = { name: string; tiers: { name: string } | { name: string }[] | null };
-type OrderListRow = {
-  id: string;
-  status: string;
-  po_number: string | null;
-  currency: string;
-  total: number | string;
-  created_at: string;
-  customers: CustomerRow | CustomerRow[] | null;
+type OrdersPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function OrdersPage() {
+export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const { supabase, user } = await requireUser();
-  const { data, error } = await supabase
-    .from('orders')
-    .select('id, status, po_number, currency, total, created_at, customers(name, tiers(name))')
-    .order('created_at', { ascending: false });
+  const filters = parseOrderFilters(await searchParams);
+  const { orders, lines, tiers, error } = await fetchOrdersData(supabase, filters);
 
-  const rows = (data ?? []) as OrderListRow[];
+  const chartData = buildChartData(orders, lines);
+  const currency = orders[0]?.currency ?? 'USD';
+  const totalSales = Math.round(orders.reduce((sum, order) => sum + order.total, 0) * 100) / 100;
+  const filtered = hasActiveFilters(filters);
 
   return (
     <>
       <Nav email={user.email} active="orders" />
       <main className="container">
         <div className="page-header">
-          <h1 className="page-title">Orders</h1>
-          <p className="page-subtitle">{rows.length} {rows.length === 1 ? 'order' : 'orders'}</p>
+          <div className="page-row">
+            <div>
+              <h1 className="page-title">Orders</h1>
+              <p className="page-subtitle">
+                {orders.length} {orders.length === 1 ? 'order' : 'orders'}
+                {' · '}
+                {formatCurrency(totalSales, currency)}
+                {filtered ? ' (filtered)' : ''}
+              </p>
+            </div>
+          </div>
         </div>
-        {error ? <div className="error-box">Failed to load orders: {error.message}</div> : null}
+
+        {error ? <div className="error-box">Failed to load orders: {error}</div> : null}
+
+        <OrdersFilters filters={filters} tiers={tiers} />
+
+        <OrdersCharts data={chartData} currency={currency} />
+
         <div className="card">
-          {rows.length === 0 ? (
-            <div className="empty">No orders yet.</div>
+          <div className="card-header">
+            <span>Order List</span>
+            <span className="muted">
+              {orders.length} {orders.length === 1 ? 'order' : 'orders'} · {lines.length}{' '}
+              {lines.length === 1 ? 'line' : 'lines'}
+            </span>
+          </div>
+          {orders.length === 0 ? (
+            <div className="empty">
+              {filtered ? 'No orders match the selected filters.' : 'No orders yet.'}
+            </div>
           ) : (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Order</th><th>Customer</th><th>Tier</th><th>Status</th>
-                    <th className="num">Total</th><th className="num">Time</th>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Tier</th>
+                    <th>Status</th>
+                    <th className="num">Total</th>
+                    <th className="num">Time</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((order) => {
-                    const customer = one(order.customers);
-                    const tier = one(customer?.tiers);
-                    return (
-                      <tr key={order.id}>
-                        <td>
-                          <Link href={`/orders/${order.id}`} className="row-link">
-                            <span className="mono">#{shortId(order.id)}</span>
-                            {order.po_number ? <span> · {order.po_number}</span> : null}
-                          </Link>
-                        </td>
-                        <td>{customer?.name ?? '—'}</td>
-                        <td>{tier ? <span className="badge badge-tier">{tier.name}</span> : '—'}</td>
-                        <td><span className={`badge badge-${order.status}`}>{statusLabel(order.status)}</span></td>
-                        <td className="num">{formatCurrency(order.total, order.currency)}</td>
-                        <td className="num">{formatDateTime(order.created_at)}</td>
-                      </tr>
-                    );
-                  })}
+                  {orders.map((order) => (
+                    <tr key={order.id}>
+                      <td>
+                        <Link href={`/orders/${order.id}`} className="row-link">
+                          <span className="mono">#{shortId(order.id)}</span>
+                          {order.po_number ? <span> · {order.po_number}</span> : null}
+                        </Link>
+                      </td>
+                      <td>{order.customer_name}</td>
+                      <td>
+                        {order.tier_code ? (
+                          <span className="badge badge-tier">{order.tier_name}</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge badge-${order.status}`}>
+                          {statusLabel(order.status)}
+                        </span>
+                      </td>
+                      <td className="num">{formatCurrency(order.total, order.currency)}</td>
+                      <td className="num">{formatDateTime(order.created_at)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
