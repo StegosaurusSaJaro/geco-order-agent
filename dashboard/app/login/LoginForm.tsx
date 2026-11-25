@@ -1,6 +1,18 @@
 'use client';
 
 import { useActionState } from 'react';
+import { AlertCircle, Package } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { signInAction, type LoginState } from './actions';
 
 const initialState: LoginState = { error: null };
@@ -12,50 +24,61 @@ export function LoginForm() {
   );
 
   return (
-    <div className="login-card">
-      <h1>GECO Orders</h1>
-      <p>Sign in with your staff account to view orders and chats.</p>
-
-      {state.error ? (
-        <div className="error-box" role="alert">
-          {state.error}
+    <div className="w-full max-w-[380px] flex flex-col gap-5">
+      <div className="flex items-center justify-center gap-2.5">
+        <div className="size-7 rounded-md bg-[var(--brand-crimson)] text-white grid place-items-center shrink-0">
+          <Package className="size-[15px]" />
         </div>
-      ) : null}
+        <span className="font-semibold text-[15px] tracking-tight">
+          GECO Asia · Order Desk
+        </span>
+      </div>
 
-      <form action={formAction}>
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            className="input"
-            autoComplete="email"
-            required
-          />
-        </div>
+      <Card className="w-full max-w-[380px]">
+        <CardHeader>
+          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardDescription>
+            Sign in with your staff account to view orders and chats.
+          </CardDescription>
+        </CardHeader>
 
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            className="input"
-            autoComplete="current-password"
-            required
-          />
-        </div>
+        <CardContent className="flex flex-col gap-4">
+          {state.error ? (
+            <Alert variant="destructive" role="alert">
+              <AlertCircle className="size-4" />
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
+          ) : null}
 
-        <button
-          type="submit"
-          className="btn btn-primary"
-          style={{ width: '100%', marginTop: 6 }}
-          disabled={pending}
-        >
-          {pending ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+          <form action={formAction} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+
+            <Button type="submit" className="w-full mt-1" disabled={pending}>
+              {pending ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
