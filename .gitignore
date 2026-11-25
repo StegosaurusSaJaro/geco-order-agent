@@ -1,0 +1,43 @@
+﻿# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local-only docs, agent templates, and prototype scratch
+docs/*
+!docs/setup.md
+CLAUDE.md
+GLOSSARY.md
+template.md
+prototypes/
+.claude/
+.herdr/
+
+# Python (bot/)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+
+# Node / Next.js (dashboard/)
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+npm-debug.log*
+
+# OS & editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+*.tmp
