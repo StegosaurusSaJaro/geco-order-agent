@@ -6,6 +6,10 @@ from psycopg_pool import ConnectionPool
 
 RECENT_MESSAGE_COUNT = 6
 LINE_VERSION = 1
+_EXCLUDED_FLAGGED_SQL = (
+    " and not exists (select 1 from screening_log s"
+    " where s.message_id = messages.id and s.status in ('held', 'dismissed'))"
+)
 
 
 @dataclass(frozen=True)
@@ -73,7 +77,8 @@ class Database:
         with self.pool.connection() as conn:
             rows = conn.execute(
                 "select author, body from messages where conversation_id = %s and body is not null"
-                " order by created_at desc limit %s",
+                + _EXCLUDED_FLAGGED_SQL
+                + " order by created_at desc limit %s",
                 (conversation_id, RECENT_MESSAGE_COUNT),
             ).fetchall()
         return list(reversed(rows))
@@ -83,7 +88,8 @@ class Database:
             rows = conn.execute(
                 "select author, body from messages"
                 " where conversation_id = %s and body is not null and created_at < %s"
-                " order by created_at desc limit %s",
+                + _EXCLUDED_FLAGGED_SQL
+                + " order by created_at desc limit %s",
                 (conversation_id, before_ts, limit),
             ).fetchall()
         return list(reversed(rows))
