@@ -1,9 +1,8 @@
 import Link from 'next/link';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowUpRight } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { LiveRefresh } from '@/components/LiveRefresh';
-import { OrdersCharts } from '@/components/OrdersCharts';
-import { OrdersFilters } from '@/components/OrdersFilters';
+import { NeedsReviewList } from '@/components/NeedsReviewList';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge, TierBadge } from '@/components/StatusBadge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,14 +16,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatDateTime, shortId } from '@/lib/format';
-import {
-  buildChartData,
-  buildFilterQuery,
-  fetchOrdersData,
-  hasActiveFilters,
-  parseOrderFilters,
-} from '@/lib/orders';
-import { pageWindow, parsePage, slicePage } from '@/lib/pagination';
+import { fetchHomeOrdersData, formatWaitingAge, LOW_STOCK_PACKS } from '@/lib/orders';
+import { pageWindow, parsePage } from '@/lib/pagination';
 import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -38,16 +31,24 @@ type OrdersPageProps = {
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const { supabase, user } = await requireUser();
   const params = await searchParams;
-  const filters = parseOrderFilters(params);
-  const { orders, lines, tiers, error } = await fetchOrdersData(supabase, filters);
+  const requestedPage = parsePage(params);
+  const now = new Date();
+  const nowMs = now.getTime();
+  const {
+    heldOrders,
+    ordersToday,
+    ordersYesterday,
+    lowStockCount,
+    recentOrders,
+    totalOrders,
+    error,
+  } = await fetchHomeOrdersData(supabase, requestedPage, ORDERS_PAGE_SIZE, now);
 
-  const chartData = buildChartData(orders, lines, filters);
-  const currency = orders[0]?.currency ?? 'USD';
-  const totalSales = Math.round(orders.reduce((sum, order) => sum + order.total, 0) * 100) / 100;
-  const filtered = hasActiveFilters(filters);
-  const pages = pageWindow(parsePage(params), orders.length, ORDERS_PAGE_SIZE);
-  const pageOrders = slicePage(orders, pages);
-  const filterParams = Object.fromEntries(new URLSearchParams(buildFilterQuery(filters)));
+  const pages = pageWindow(requestedPage, totalOrders, ORDERS_PAGE_SIZE);
+  const oldestHeld = heldOrders[0] ?? null;
+  const needsReviewFoot = oldestHeld
+    ? `Oldest waiting ${formatWaitingAge(oldestHeld.updated_at, nowMs)}`
+    : 'None waiting';
 
   return (
     <>
@@ -60,11 +61,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h1 className="text-[22px] font-semibold tracking-[-0.025em] leading-tight">Orders</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-              {orders.length} {orders.length === 1 ? 'order' : 'orders'}
-              {' · '}
-              {formatCurrency(totalSales, currency)}
-              {filtered ? ' (filtered)' : ''}
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Held orders needing action and recent wholesale orders.
             </p>
           </div>
         </div>
@@ -76,21 +74,84 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           </Alert>
         ) : null}
 
-        <OrdersFilters filters={filters} tiers={tiers} />
+        <section
+          aria-label="Order desk metrics"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+        >
+          <a
+            href="#needs-review"
+            className="grid gap-1.5 rounded-lg border border-border bg-card px-4 py-3.5 text-left shadow-xs transition-colors hover:bg-sidebar"
+          >
+            <div className="flex items-center justify-between text-[12.5px] font-medium text-muted-foreground">
+              <span>Needs review</span>
+              {heldOrders.length > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-full bg-[var(--dot-amber)] ring-1 ring-amber-900/20"
+                />
+              ) : null}
+            </div>
+            <div className="text-2xl font-semibold tracking-[-0.03em] leading-tight tabular-nums text-foreground">
+              {heldOrders.length}
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums">{needsReviewFoot}</div>
+          </a>
 
-        <OrdersCharts data={chartData} currency={currency} />
+          <div className="grid gap-1.5 rounded-lg border border-border bg-card px-4 py-3.5 text-left shadow-xs">
+            <div className="flex items-center justify-between text-[12.5px] font-medium text-muted-foreground">
+              <span>Orders today</span>
+            </div>
+            <div className="text-2xl font-semibold tracking-[-0.03em] leading-tight tabular-nums text-foreground">
+              {ordersToday}
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums">
+              Yesterday {ordersYesterday}
+            </div>
+          </div>
+
+          <Link
+            href="/inventory"
+            className="grid gap-1.5 rounded-lg border border-border bg-card px-4 py-3.5 text-left shadow-xs transition-colors hover:bg-sidebar"
+          >
+            <div className="flex items-center justify-between text-[12.5px] font-medium text-muted-foreground">
+              <span>Low stock</span>
+              {lowStockCount > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-full bg-[var(--dot-amber)] ring-1 ring-amber-900/20"
+                />
+              ) : null}
+            </div>
+            <div className="text-2xl font-semibold tracking-[-0.03em] leading-tight tabular-nums text-foreground">
+              {lowStockCount}
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums">
+              At or below {LOW_STOCK_PACKS} packs
+            </div>
+          </Link>
+        </section>
+
+        <NeedsReviewList orders={heldOrders} nowMs={nowMs} />
 
         <Card className="py-0 gap-0 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
-            <CardTitle className="text-[13.5px] font-semibold">Order List</CardTitle>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {orders.length} {orders.length === 1 ? 'order' : 'orders'} · {lines.length}{' '}
-              {lines.length === 1 ? 'line' : 'lines'}
-            </span>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[13.5px] font-semibold">Recent Orders</CardTitle>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
+              </span>
+            </div>
+            <Link
+              href="/reports"
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-[var(--brand-crimson)] hover:underline underline-offset-4"
+            >
+              Filters and charts in Reports
+              <ArrowUpRight className="size-3.5" />
+            </Link>
           </CardHeader>
-          {orders.length === 0 ? (
+          {totalOrders === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-              {filtered ? 'No orders match the selected filters.' : 'No orders yet.'}
+              No orders yet.
             </div>
           ) : (
             <Table>
@@ -117,7 +178,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pageOrders.map((order) => (
+                {recentOrders.map((order) => (
                   <TableRow key={order.id} className="hover:bg-sidebar/70">
                     <TableCell className="px-4 py-3">
                       <Link
@@ -155,7 +216,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
               </TableBody>
             </Table>
           )}
-          <Pagination pages={pages} basePath="/orders" params={filterParams} itemLabel="orders" />
+          <Pagination pages={pages} basePath="/orders" itemLabel="orders" />
         </Card>
       </AppShell>
     </>

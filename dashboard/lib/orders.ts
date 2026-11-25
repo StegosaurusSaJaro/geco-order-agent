@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { one, shortId, statusLabel } from '@/lib/format';
 
+export const LOW_STOCK_PACKS = 10;
+
 export const ORDER_STATUSES = [
   'draft',
   'needs_review',
@@ -127,8 +129,44 @@ export type ExportRow = {
   created: string;
 };
 
+export type HeldOrder = {
+  id: string;
+  po_number: string | null;
+  currency: string;
+  total: number;
+  review_reasons: string[];
+  updated_at: string;
+  customer_name: string;
+};
+
+export type HomeOrdersData = {
+  heldOrders: HeldOrder[];
+  ordersToday: number;
+  ordersYesterday: number;
+  lowStockCount: number;
+  recentOrders: FilteredOrder[];
+  totalOrders: number;
+  error: string | null;
+};
+
+type RawHeldOrderRow = {
+  id: string;
+  po_number: string | null;
+  currency: string;
+  total: number | string;
+  review_reasons: string[] | null;
+  updated_at: string;
+  customers: { name: string } | { name: string }[] | null;
+};
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const STATUS_SET = new Set<string>(ORDER_STATUSES);
+const MANILA_DAY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Manila',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 function firstParam(
   source: URLSearchParams | Record<string, string | string[] | undefined>,
@@ -345,6 +383,156 @@ function nextDay(day: string): string {
   return date.toISOString().slice(0, 10);
 }
 
+function previousDay(day: string): string {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function formatWaitingAge(iso: string, nowMs: number): string {
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) return '—';
+  const diffMs = Math.max(0, nowMs - parsed);
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return '< 1 m';
+  if (minutes < 60) return `${minutes} m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `${days} d`;
+}
+
+function mapRawOrder(row: RawOrderRow): FilteredOrder {
+  const customer = one(row.customers);
+  const tier = one(customer?.tiers);
+  return {
+    id: row.id,
+    status: row.status,
+    po_number: row.po_number,
+    version: row.version,
+    currency: row.currency,
+    total: toNumber(row.total),
+    created_at: row.created_at,
+    customer_name: customer?.name ?? '—',
+    tier_code: tier?.code ?? '',
+    tier_name: tier?.name ?? '—',
+  };
+}
+
+export async function fetchHomeOrdersData(
+  supabase: SupabaseClient,
+  requestedPage: number,
+  pageSize: number,
+  now = new Date()
+): Promise<HomeOrdersData> {
+  const today = MANILA_DAY_FORMATTER.format(now);
+  const tomorrow = nextDay(today);
+  const yesterday = previousDay(today);
+  const safePage = Math.max(1, requestedPage);
+  const from = (safePage - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const recentSelect =
+    'id, status, po_number, version, currency, total, created_at, customers(name, tier_id, tiers(code, name))';
+
+  const [heldRes, todayRes, yesterdayRes, lowStockRes, recentRes] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, po_number, currency, total, review_reasons, updated_at, customers(name)')
+      .eq('status', 'needs_review')
+      .order('updated_at', { ascending: true })
+      .order('id', { ascending: true }),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', `${today}T00:00:00+08:00`)
+      .lt('created_at', `${tomorrow}T00:00:00+08:00`),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', `${yesterday}T00:00:00+08:00`)
+      .lt('created_at', `${today}T00:00:00+08:00`),
+    supabase
+      .from('products')
+      .select('sku', { count: 'exact', head: true })
+      .eq('active', true)
+      .lte('stock_qty', LOW_STOCK_PACKS),
+    supabase
+      .from('orders')
+      .select(recentSelect, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to),
+  ]);
+
+  const firstError =
+    heldRes.error ??
+    todayRes.error ??
+    yesterdayRes.error ??
+    lowStockRes.error ??
+    recentRes.error;
+
+  if (firstError) {
+    return {
+      heldOrders: [],
+      ordersToday: 0,
+      ordersYesterday: 0,
+      lowStockCount: 0,
+      recentOrders: [],
+      totalOrders: 0,
+      error: firstError.message,
+    };
+  }
+
+  const totalOrders = recentRes.count ?? 0;
+  let rawRecent = (recentRes.data ?? []) as unknown as RawOrderRow[];
+
+  if (totalOrders > 0 && from >= totalOrders) {
+    const lastPage = Math.max(1, Math.ceil(totalOrders / pageSize));
+    const clampedFrom = (lastPage - 1) * pageSize;
+    const clampedTo = clampedFrom + pageSize - 1;
+    const clampedRes = await supabase
+      .from('orders')
+      .select(recentSelect)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(clampedFrom, clampedTo);
+    if (clampedRes.error) {
+      return {
+        heldOrders: [],
+        ordersToday: todayRes.count ?? 0,
+        ordersYesterday: yesterdayRes.count ?? 0,
+        lowStockCount: lowStockRes.count ?? 0,
+        recentOrders: [],
+        totalOrders,
+        error: clampedRes.error.message,
+      };
+    }
+    rawRecent = (clampedRes.data ?? []) as unknown as RawOrderRow[];
+  }
+
+  const heldOrders: HeldOrder[] = ((heldRes.data ?? []) as unknown as RawHeldOrderRow[]).map(
+    (row) => ({
+      id: row.id,
+      po_number: row.po_number,
+      currency: row.currency,
+      total: toNumber(row.total),
+      review_reasons: Array.isArray(row.review_reasons) ? row.review_reasons : [],
+      updated_at: row.updated_at,
+      customer_name: one(row.customers)?.name ?? '—',
+    })
+  );
+
+  return {
+    heldOrders,
+    ordersToday: todayRes.count ?? 0,
+    ordersYesterday: yesterdayRes.count ?? 0,
+    lowStockCount: lowStockRes.count ?? 0,
+    recentOrders: rawRecent.map(mapRawOrder),
+    totalOrders,
+    error: null,
+  };
+}
+
 export function buildChartData(
   orders: FilteredOrder[],
   lines: FilteredOrderLine[],
@@ -354,15 +542,8 @@ export function buildChartData(
   const byTier = new Map<string, { code: string; name: string; sales: number; count: number }>();
   const byStatus = new Map<string, { count: number; sales: number }>();
 
-  const manilaDay = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-
   for (const order of orders) {
-    const day = manilaDay.format(new Date(order.created_at));
+    const day = MANILA_DAY_FORMATTER.format(new Date(order.created_at));
     const dayEntry = byDay.get(day) ?? { count: 0, sales: 0 };
     dayEntry.count += 1;
     dayEntry.sales = roundMoney(dayEntry.sales + order.total);
