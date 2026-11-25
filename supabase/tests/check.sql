@@ -486,3 +486,175 @@ begin
   reset role;
 end
 $$;
+
+do $$
+declare
+  v_staff_id constant uuid := '40000000-0000-4000-8000-000000000001';
+  v_new_user_id constant bigint := 999011;
+  v_rejected_user_id constant bigint := 999012;
+  v_linked_user_id constant bigint := 999013;
+  v_approve_id bigint;
+  v_reject_id bigint;
+  v_linked_id bigint;
+  v_linked_signup signups%rowtype;
+  v_linked_customer customers%rowtype;
+  v_invalid record;
+  v_result text;
+  v_constraint text;
+begin
+  insert into signups (
+    telegram_user_id, telegram_chat_id, status, business_name, contact_name, phone, delivery_address
+  )
+  values (v_new_user_id, v_new_user_id, 'pending', 'Submitted business', 'Alex Reyes', '+639171234567', '15 Market Street')
+  returning id into v_approve_id;
+
+  insert into signups (telegram_user_id, telegram_chat_id, status)
+  values (v_rejected_user_id, v_rejected_user_id, 'pending')
+  returning id into v_reject_id;
+
+  insert into signups (telegram_user_id, telegram_chat_id, status)
+  values (v_linked_user_id, v_linked_user_id, 'pending')
+  returning * into v_linked_signup;
+  v_linked_id := v_linked_signup.id;
+
+  insert into customers (name, kind, tier_id, telegram_user_id)
+  values ('Existing customer', 'hotel', 3, v_linked_user_id)
+  returning * into v_linked_customer;
+
+  begin
+    insert into signups (telegram_user_id, telegram_chat_id)
+    values (v_rejected_user_id, v_rejected_user_id);
+    raise exception 'Expected signups_one_open to reject a collecting signup while a pending one exists';
+  exception
+    when unique_violation then
+      get stacked diagnostics v_constraint = constraint_name;
+      if v_constraint is distinct from 'signups_one_open' then
+        raise;
+      end if;
+  end;
+
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', '', true);
+  begin
+    perform decide_signup(v_reject_id, 'reject');
+    raise exception 'Expected decide_signup to refuse a null auth.uid()';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  perform set_config('request.jwt.claim.sub', v_staff_id::text, true);
+
+  for v_invalid in
+    select *
+    from (values
+      ('null decision', null, 'Chosen customer', 'restaurant', 2),
+      ('bad decision', 'invalid', 'Chosen customer', 'restaurant', 2),
+      ('null name', 'approve', null, 'restaurant', 2),
+      ('empty name', 'approve', '', 'restaurant', 2),
+      ('blank name', 'approve', '   ', 'restaurant', 2),
+      ('long name', 'approve', repeat('x', 121), 'restaurant', 2),
+      ('null kind', 'approve', 'Chosen customer', null, 2),
+      ('bad kind', 'approve', 'Chosen customer', 'invalid', 2),
+      ('null tier', 'approve', 'Chosen customer', 'restaurant', null),
+      ('missing tier', 'approve', 'Chosen customer', 'restaurant', 999)
+    ) as cases(label, decision, name, kind, tier_id)
+  loop
+    begin
+      perform decide_signup(v_approve_id, v_invalid.decision, v_invalid.name, v_invalid.kind, v_invalid.tier_id::smallint);
+      raise exception 'Expected decide_signup to reject % with SQLSTATE 22023', v_invalid.label;
+    exception
+      when invalid_parameter_value then
+        null;
+    end;
+  end loop;
+
+  begin
+    update signups set status = 'rejected' where id = v_reject_id;
+    raise exception 'Expected insufficient_privilege when authenticated updates signups';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  v_result := decide_signup(v_approve_id, 'approve', 'Chosen customer', 'restaurant', 2::smallint);
+  if v_result is distinct from 'approved' then
+    raise exception 'Expected decide_signup to return approved, got %', v_result;
+  end if;
+
+  if not exists (
+    select 1
+    from signups s
+    join customers c on c.id = s.customer_id
+    where s.id = v_approve_id
+      and s.status = 'approved'
+      and s.decided_at is not null
+      and s.decided_by = v_staff_id
+      and c.name = 'Chosen customer'
+      and c.kind = 'restaurant'
+      and c.tier_id = 2
+      and c.telegram_user_id = v_new_user_id
+      and c.contact_name = 'Alex Reyes'
+      and c.phone = '+639171234567'
+      and c.delivery_address = '15 Market Street'
+  ) then
+    raise exception 'Expected approval to link the new customer with the chosen and submitted details';
+  end if;
+
+  v_result := decide_signup(v_approve_id, 'reject');
+  if v_result is distinct from 'handled' then
+    raise exception 'Expected a second decide_signup call to return handled, got %', v_result;
+  end if;
+
+  v_result := decide_signup(null, 'reject');
+  if v_result is distinct from 'handled' then
+    raise exception 'Expected decide_signup with a null id to return handled, got %', v_result;
+  end if;
+
+  v_result := decide_signup(v_reject_id, 'reject');
+  if v_result is distinct from 'rejected' then
+    raise exception 'Expected decide_signup to return rejected, got %', v_result;
+  end if;
+
+  if not exists (
+    select 1 from signups
+    where id = v_reject_id and status = 'rejected'
+      and customer_id is null and decided_at is not null and decided_by = v_staff_id
+  ) or exists (select 1 from customers where telegram_user_id = v_rejected_user_id) then
+    raise exception 'Expected rejection to record the decision without creating a customer';
+  end if;
+
+  v_result := decide_signup(v_linked_id, 'approve', 'Different customer', 'cafe', 1::smallint);
+  if v_result is distinct from 'already_linked' then
+    raise exception 'Expected decide_signup to return already_linked, got %', v_result;
+  end if;
+
+  if (select s from signups s where s.id = v_linked_id) is distinct from v_linked_signup
+    or (select c from customers c where c.telegram_user_id = v_linked_user_id) is distinct from v_linked_customer then
+    raise exception 'Expected already_linked to leave the signup and customer unchanged';
+  end if;
+
+  reset role;
+
+  if has_function_privilege('anon', 'public.decide_signup(bigint, text, text, text, smallint)', 'EXECUTE') then
+    raise exception 'anon unexpectedly has EXECUTE privilege on decide_signup';
+  end if;
+
+  begin
+    insert into signups (telegram_user_id, telegram_chat_id)
+    values (v_rejected_user_id, v_rejected_user_id)
+    returning status into v_result;
+  exception
+    when unique_violation then
+      raise exception 'Expected a new collecting signup after rejection';
+  end;
+  if v_result is distinct from 'collecting' then
+    raise exception 'Expected reapplication to start collecting, got %', v_result;
+  end if;
+
+  raise exception using errcode = 'P9999', message = 'rollback signups test writes';
+exception
+  when sqlstate 'P9999' then
+    null;
+end
+$$;
