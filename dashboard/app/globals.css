@@ -95,6 +95,12 @@ tbody tr:hover { background: #f9fbfa; }
   .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .charts-grid { grid-template-columns: minmax(0, 1fr); }
 }
+.stock-cell { min-width: 190px; }
+.stock-form { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.stock-input { width: 92px; padding: 6px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.stock-msg { margin-top: 6px; font-size: 12px; text-align: right; white-space: normal; }
+.stock-msg-ok { color: var(--accent); font-weight: 500; }
+.stock-msg-err { color: var(--danger-text); font-weight: 500; }
 @media (max-width: 640px) {
   .nav-inner { padding: 0 12px; gap: 8px; }
   .nav-brand { font-size: 14px; }

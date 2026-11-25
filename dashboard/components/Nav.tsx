@@ -3,7 +3,7 @@ import { signOutAction } from '@/app/login/actions';
 
 type NavProps = {
   email: string | undefined;
-  active: 'orders' | 'conversations';
+  active: 'orders' | 'conversations' | 'inventory';
 };
 
 export function Nav({ email, active }: NavProps) {
@@ -28,6 +28,13 @@ export function Nav({ email, active }: NavProps) {
             aria-current={active === 'conversations' ? 'page' : undefined}
           >
             Conversations
+          </Link>
+          <Link
+            href="/inventory"
+            className="nav-link"
+            aria-current={active === 'inventory' ? 'page' : undefined}
+          >
+            Inventory
           </Link>
         </nav>
 
