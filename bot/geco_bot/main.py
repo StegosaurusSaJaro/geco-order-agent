@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from decimal import Decimal
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes, MessageHandler, filters
@@ -16,7 +17,7 @@ READ_FAILED = "Sorry, I couldn't read that, please try again"
 FILES_LATER = "Please type your order as a message for now"
 CONFIRM_REPLIES = {
     "confirmed": "Your order is confirmed. Thank you!",
-    "held": "Some items are short on stock, so our staff will check this order and get back to you.",
+    "held": "Our staff will check this order and get back to you.",
     "handled": "This order was already handled.",
 }
 CANCELLED = "Your order is cancelled."
@@ -30,9 +31,10 @@ class Reply:
 
 
 class OrderBot:
-    def __init__(self, db: Database, reader: Reader):
+    def __init__(self, db: Database, reader: Reader, review_threshold: Decimal = Decimal("2000")):
         self.db = db
         self.reader = reader
+        self.review_threshold = review_threshold
 
     async def on_text(self, user_id: int, chat_id: int, text: str, telegram_message_id=None) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
@@ -40,22 +42,23 @@ class OrderBot:
             return Reply(UNKNOWN_SENDER)
         conversation_id = self.db.conversation_id(customer.id, chat_id)
         history = self.db.recent_messages(conversation_id)
+        draft = self.db.open_draft(customer.id, conversation_id)
         inbound_id = self.db.save_message(conversation_id, "in", "customer", "text", text, telegram_message_id)
-        reading = await self.reader.read(text, history)
-        reply = self.compose(customer, conversation_id, reading)
+        reading = await self.reader.read(text, history, draft=draft)
+        reply = self.compose(customer, conversation_id, reading, draft=draft)
         outbound_id = self.db.save_message(conversation_id, "out", "bot", "text", reply.text)
         if reply.order_id:
             self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
         return reply
 
-    def compose(self, customer, conversation_id, reading, source: str = "text") -> Reply:
+    def compose(self, customer, conversation_id, reading, source: str = "text", draft: dict | None = None) -> Reply:
         if reading is None:
             return Reply(READ_FAILED)
         facts = orders.reply_facts(self.db.price_and_stock(customer.tier_id, orders.placeholder_skus(reading.reply)))
         said = orders.fill_placeholders(reading.reply, facts).strip()
         if reading.intent == "price-list":
             return Reply(join(said, orders.price_list_text(self.db.price_list(customer.tier_id))))
-        if reading.intent != "order":
+        if reading.intent != "order" and not reading.edit_draft:
             return Reply(said)
         kept, dropped = check_lines(reading.lines, self.reader.catalog_by_sku)
         products = self.db.price_and_stock(customer.tier_id, [line["sku"] for line in kept])
@@ -63,9 +66,14 @@ class OrderBot:
         dropped += unpriced
         if not lines:
             return Reply(join(said, orders.dropped_text(dropped)))
-        order_id = self.db.create_draft(
-            customer.id, conversation_id, lines, total, source=source, po_number=reading.po_number
-        )
+        if reading.edit_draft and draft and self.db.replace_draft_lines(
+            draft["id"], customer.id, lines, total, po_number=reading.po_number
+        ):
+            order_id = draft["id"]
+        else:
+            order_id = self.db.create_draft(
+                customer.id, conversation_id, lines, total, source=source, po_number=reading.po_number
+            )
         return Reply(join(said, orders.draft_text(lines, products, total, dropped)), order_id)
 
     async def on_button(self, user_id: int, chat_id: int, action: str, order_id: str) -> Reply:
@@ -78,7 +86,7 @@ class OrderBot:
             self.db.save_message(conversation_id, "out", "bot", "text", ALREADY_HANDLED)
             return Reply(ALREADY_HANDLED)
         if action == "confirm":
-            text = CONFIRM_REPLIES[self.db.confirm(order_id, customer.id)]
+            text = CONFIRM_REPLIES[self.db.confirm(order_id, customer.id, self.review_threshold)]
         else:
             text = CANCELLED if self.db.cancel(order_id, customer.id) else ALREADY_HANDLED
         reply_id = self.db.save_message(conversation_id, "out", "bot", "text", text)
@@ -101,6 +109,7 @@ class OrderBot:
             return Reply(UNKNOWN_SENDER)
         conversation_id = self.db.conversation_id(customer.id, chat_id)
         history = self.db.recent_messages(conversation_id)
+        draft = self.db.open_draft(customer.id, conversation_id)
         inbound_id = self.db.save_message(
             conversation_id, "in", "customer", kind, caption, telegram_message_id, file_name, file_mime
         )
@@ -109,9 +118,9 @@ class OrderBot:
             self.db.save_message(conversation_id, "out", "bot", "text", READ_FAILED)
             return Reply(READ_FAILED)
         reading = await self.reader.read(
-            caption or "", history, file_bytes=file_bytes, file_mime=file_mime, file_name=file_name
+            caption or "", history, file_bytes=file_bytes, file_mime=file_mime, file_name=file_name, draft=draft
         )
-        reply = self.compose(customer, conversation_id, reading, source=source)
+        reply = self.compose(customer, conversation_id, reading, source=source, draft=draft)
         outbound_id = self.db.save_message(conversation_id, "out", "bot", "text", reply.text)
         if reply.order_id:
             self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
@@ -187,7 +196,7 @@ def main():
     settings = load_settings()
     db = Database(settings.db_url)
     reader = Reader(db.catalog(), db.unit_codes(), settings.model, settings.fallback_model)
-    build_app(settings.telegram_bot_token, OrderBot(db, reader)).run_polling()
+    build_app(settings.telegram_bot_token, OrderBot(db, reader, settings.review_threshold_usd)).run_polling()
 
 
 if __name__ == "__main__":

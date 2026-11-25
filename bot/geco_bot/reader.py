@@ -49,7 +49,10 @@ Rules for order lines:
 - unit is the unit code the catalog lists for that SKU. quantity is the number of those units the customer wants. Customer wording such as carton, case, sack, tray, pack, bag or bottle maps to the catalog unit of the matched SKU.
 - Ignore prices, totals, subtotals, dates, phone numbers and notes. Do not invent lines.
 - po_number is the customer's purchase order number if the document or message gives one, otherwise null. Do not use invoice numbers, account numbers or phone numbers.
-- If the intent is not order, return no lines.
+- If a current open draft order is shown and the customer asks to change, add or remove items on it, set edit_draft to true, intent to order, and return the full new list of lines for the draft.
+- If a current open draft order is shown and the customer asks a question, small talk or price list without changing the draft, set edit_draft to false and return no lines.
+- Otherwise set edit_draft to false.
+- If the intent is not order and edit_draft is false, return no lines.
 
 Rules for reply:
 - Write a short, friendly reply in the customer's language.
@@ -74,6 +77,7 @@ def build_schema(skus: list[str], units: list[str]):
 
     class ReaderOutput(BaseModel):
         intent: Literal[tuple(INTENTS)]
+        edit_draft: bool = False
         po_number: Optional[str]
         lines: list[OrderLine]
         reply: str
@@ -87,10 +91,18 @@ def catalog_text(catalog: list[dict]) -> str:
     )
 
 
-def history_text(history: list[dict], message: str) -> str:
+def history_text(history: list[dict], message: str, draft: dict | None = None) -> str:
     lines = [f"{m['author']}: {m['body']}" for m in history]
     earlier = "\n".join(lines) if lines else "(none)"
-    return f"Earlier messages in this chat, oldest first:\n{earlier}\n\nNew customer message:\n{message}"
+    parts = [f"Earlier messages in this chat, oldest first:\n{earlier}"]
+    if draft and draft["lines"]:
+        draft_lines = "\n".join(
+            f"- {l['sku']} | {Decimal(l['quantity']).normalize():f} | {l['unit_code']}"
+            for l in draft["lines"]
+        )
+        parts.append(f"Current open draft order:\n{draft_lines}")
+    parts.append(f"New customer message:\n{message}")
+    return "\n\n".join(parts)
 
 
 def check_lines(lines, catalog_by_sku: dict[str, dict]):
@@ -171,10 +183,11 @@ class Reader:
         file_bytes: bytes | None = None,
         file_mime: str | None = None,
         file_name: str | None = None,
+        draft: dict | None = None,
     ):
         hist = history or []
         if file_bytes is None:
-            parts = [types.Part(text=history_text(hist, message))]
+            parts = [types.Part(text=history_text(hist, message, draft))]
         else:
             name = (file_name or "").lower()
             mime_in = (file_mime or "").lower()
@@ -191,17 +204,17 @@ class Reader:
                     return None
                 prompt = f"Read this purchase order, converted from a spreadsheet to a table:\n\n{table}"
                 if message:
-                    prompt = f"{history_text(hist, message)}\n\n{prompt}"
+                    prompt = f"{history_text(hist, message, draft)}\n\n{prompt}"
                 parts = [types.Part(text=prompt)]
             elif name.endswith(".pdf") or mime_in == "application/pdf":
-                prompt = history_text(hist, message or "Read this purchase order.")
+                prompt = history_text(hist, message or "Read this purchase order.", draft)
                 parts = [types.Part.from_bytes(data=file_bytes, mime_type="application/pdf"), types.Part(text=prompt)]
             elif mime_in.startswith("image/") or name.endswith(tuple(IMAGE_MIMES)):
                 mime = mime_in if mime_in.startswith("image/") else next(
                     (m for suffix, m in IMAGE_MIMES.items() if name.endswith(suffix)),
                     "image/jpeg",
                 )
-                prompt = history_text(hist, message or "Read this purchase order.")
+                prompt = history_text(hist, message or "Read this purchase order.", draft)
                 parts = [types.Part.from_bytes(data=file_bytes, mime_type=mime), types.Part(text=prompt)]
             else:
                 return None

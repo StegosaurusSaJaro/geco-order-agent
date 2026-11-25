@@ -137,6 +137,52 @@ class Database:
                 )
         return order_id
 
+    def open_draft(self, customer_id: str, conversation_id: str) -> dict | None:
+        with self.pool.connection() as conn:
+            order = conn.execute(
+                "select id::text, po_number from orders"
+                " where customer_id = %s and conversation_id = %s and status = 'draft'"
+                " order by created_at desc limit 1",
+                (customer_id, conversation_id),
+            ).fetchone()
+            if order is None:
+                return None
+            lines = conn.execute(
+                "select sku, quantity, unit_code from order_lines"
+                " where order_id = %s and version = %s order by line_no",
+                (order["id"], LINE_VERSION),
+            ).fetchall()
+        return {"id": order["id"], "po_number": order["po_number"], "lines": lines}
+
+    def replace_draft_lines(
+        self,
+        order_id: str,
+        customer_id: str,
+        lines: list[dict],
+        total: Decimal,
+        po_number: str | None = None,
+    ) -> bool:
+        with self.pool.connection() as conn, conn.transaction():
+            updated = conn.execute(
+                "update orders set total = %s, po_number = coalesce(%s, po_number), updated_at = now()"
+                " where id = %s and customer_id = %s and status = 'draft' returning id",
+                (total, po_number, order_id, customer_id),
+            ).fetchone()
+            if updated is None:
+                return False
+            conn.execute(
+                "delete from order_lines where order_id = %s and version = %s",
+                (order_id, LINE_VERSION),
+            )
+            for line_no, line in enumerate(lines, start=1):
+                conn.execute(
+                    "insert into order_lines (order_id, version, line_no, sku, quantity, unit_code, unit_price, line_total)"
+                    " values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (order_id, LINE_VERSION, line_no, line["sku"], line["quantity"], line["unit_code"],
+                     line["unit_price"], line["line_total"]),
+                )
+        return True
+
     def order_belongs_to(self, order_id: str, customer_id: str, conversation_id: str) -> bool:
         with self.pool.connection() as conn:
             row = conn.execute(
@@ -145,15 +191,18 @@ class Database:
             ).fetchone()
         return row is not None
 
-    def confirm(self, order_id: str, customer_id: str) -> str:
+    def confirm(self, order_id: str, customer_id: str, review_threshold: Decimal = Decimal("2000")) -> str:
         with self.pool.connection() as conn, conn.transaction():
             updated = conn.execute(
                 "update orders set status = 'confirmed', confirmed_at = now(), updated_at = now()"
-                " where id = %s and customer_id = %s and status = 'draft' returning id",
+                " where id = %s and customer_id = %s and status = 'draft' returning id, total",
                 (order_id, customer_id),
             ).fetchone()
             if updated is None:
                 return "handled"
+            reasons = []
+            if updated["total"] > review_threshold:
+                reasons.append("total")
             try:
                 with conn.transaction():
                     needed = conn.execute(
@@ -169,11 +218,15 @@ class Database:
                     ).rowcount
                     if deducted < needed:
                         raise StockShort
-            except StockShort:
+                    if reasons:
+                        raise HoldOrder
+            except (StockShort, HoldOrder) as exc:
+                if isinstance(exc, StockShort):
+                    reasons.append("stock")
                 conn.execute(
                     "update orders set status = 'needs_review', confirmed_at = null,"
-                    " review_reasons = array['stock'], updated_at = now() where id = %s",
-                    (order_id,),
+                    " review_reasons = %s, updated_at = now() where id = %s",
+                    (reasons, order_id),
                 )
                 return "held"
         return "confirmed"
@@ -189,4 +242,8 @@ class Database:
 
 
 class StockShort(Exception):
+    pass
+
+
+class HoldOrder(Exception):
     pass
