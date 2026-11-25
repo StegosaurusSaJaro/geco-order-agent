@@ -72,6 +72,9 @@ class OrderBot:
             return Reply(UNKNOWN_SENDER)
         conversation_id = self.db.conversation_id(customer.id, chat_id)
         pressed_id = self.db.save_message(conversation_id, "in", "customer", "button", action)
+        if not self.db.order_belongs_to(order_id, customer.id, conversation_id):
+            self.db.save_message(conversation_id, "out", "bot", "text", ALREADY_HANDLED)
+            return Reply(ALREADY_HANDLED)
         if action == "confirm":
             text = CONFIRM_REPLIES[self.db.confirm(order_id, customer.id)]
         else:

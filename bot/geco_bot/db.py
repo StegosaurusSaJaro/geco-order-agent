@@ -129,6 +129,14 @@ class Database:
                 )
         return order_id
 
+    def order_belongs_to(self, order_id: str, customer_id: str, conversation_id: str) -> bool:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "select 1 from orders where id = %s and customer_id = %s and conversation_id = %s",
+                (order_id, customer_id, conversation_id),
+            ).fetchone()
+        return row is not None
+
     def confirm(self, order_id: str, customer_id: str) -> str:
         with self.pool.connection() as conn, conn.transaction():
             updated = conn.execute(
