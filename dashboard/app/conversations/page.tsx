@@ -1,10 +1,22 @@
 import Link from 'next/link';
-import { Nav } from '@/components/Nav';
-import { formatDateTime, one } from '@/lib/format';
-import { getSupabaseConfig, requireUser } from '@/lib/supabase';
+import { AlertCircle } from 'lucide-react';
+import { AppShell } from '@/components/AppShell';
 import { LiveRefresh } from '@/components/LiveRefresh';
 import { Pagination } from '@/components/Pagination';
+import { TierBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { formatDateTime, one } from '@/lib/format';
 import { pageWindow, parsePage, slicePage } from '@/lib/pagination';
+import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,8 +93,11 @@ export default async function ConversationsPage({
   const pages = pageWindow(parsePage(await searchParams), rows.length, CONVERSATIONS_PAGE_SIZE);
 
   return (
-    <>
-      <Nav email={user.email} active="conversations" />
+    <AppShell
+      email={user.email}
+      active="conversations"
+      breadcrumb={[{ label: 'Conversations' }]}
+    >
       <LiveRefresh
         {...getSupabaseConfig()}
         channelName="conversations"
@@ -91,49 +106,82 @@ export default async function ConversationsPage({
           { table: 'orders', event: 'INSERT' },
         ]}
       />
-      <main className="container">
-        <div className="page-header">
-          <h1 className="page-title">Conversations</h1>
-          <p className="page-subtitle">{rows.length} {rows.length === 1 ? 'conversation' : 'conversations'}</p>
-        </div>
-        {queryError ? (
-          <div className="error-box">Failed to load conversations: {queryError.message}</div>
-        ) : rows.length === 0 ? (
-          <div className="card"><div className="empty">No conversations yet.</div></div>
-        ) : (
-          <div className="card">
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Customer</th><th>Tier</th><th>Last message</th>
-                    <th className="num">Messages</th><th className="num">Orders</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {slicePage(rows, pages).map((row) => (
-                    <tr key={row.id}>
-                      <td><Link href={`/conversations/${row.id}`} className="row-link">{row.customerName}</Link></td>
-                      <td>{row.tierName ? <span className="badge badge-tier">{row.tierName}</span> : '—'}</td>
-                      <td>
-                        {row.lastMessage ? (
-                          <div>
-                            <div>{previewText(row.lastMessage)}</div>
-                            <div className="muted">{formatDateTime(row.lastMessage.created_at)}</div>
-                          </div>
-                        ) : <span className="muted">No messages yet</span>}
-                      </td>
-                      <td className="num">{row.messageCount}</td>
-                      <td className="num">{row.orderCount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Pagination pages={pages} basePath="/conversations" itemLabel="conversations" />
-          </div>
-        )}
-      </main>
-    </>
+      <div className="flex flex-col gap-1 min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight">Conversations</h1>
+        <p className="text-sm text-muted-foreground tabular-nums">
+          {rows.length} {rows.length === 1 ? 'conversation' : 'conversations'}
+        </p>
+      </div>
+      {queryError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            Failed to load conversations: {queryError.message}
+          </AlertDescription>
+        </Alert>
+      ) : rows.length === 0 ? (
+        <Card className="py-0">
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            No conversations yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="gap-0 py-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-4">Customer</TableHead>
+                <TableHead className="px-4">Tier</TableHead>
+                <TableHead className="px-4">Last message</TableHead>
+                <TableHead className="px-4 text-right">Messages</TableHead>
+                <TableHead className="px-4 text-right">Orders</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {slicePage(rows, pages).map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="px-4 py-3 font-medium">
+                    <Link
+                      href={`/conversations/${row.id}`}
+                      className="text-foreground hover:text-brand-crimson hover:underline transition-colors"
+                    >
+                      {row.customerName}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {row.tierName ? (
+                      <TierBadge name={row.tierName} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal min-w-[220px] max-w-[420px]">
+                    {row.lastMessage ? (
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="text-sm text-foreground break-words">
+                          {previewText(row.lastMessage)}
+                        </div>
+                        <div className="font-mono tabular-nums text-xs text-muted-foreground">
+                          {formatDateTime(row.lastMessage.created_at)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">No messages yet</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono tabular-nums">
+                    {row.messageCount}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono tabular-nums">
+                    {row.orderCount}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Pagination pages={pages} basePath="/conversations" itemLabel="conversations" />
+        </Card>
+      )}
+    </AppShell>
   );
 }
