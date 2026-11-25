@@ -191,7 +191,14 @@ class Database:
             ).fetchone()
         return row is not None
 
-    def confirm(self, order_id: str, customer_id: str, review_threshold: Decimal = Decimal("2000")) -> str:
+    def confirm(
+        self,
+        order_id: str,
+        customer_id: str,
+        review_threshold: Decimal = Decimal("2000"),
+        quantity_factor: Decimal = Decimal("3"),
+        quantity_min_history: int = 2,
+    ) -> str:
         with self.pool.connection() as conn, conn.transaction():
             updated = conn.execute(
                 "update orders set status = 'confirmed', confirmed_at = now(), updated_at = now()"
@@ -203,6 +210,33 @@ class Database:
             reasons = []
             if updated["total"] > review_threshold:
                 reasons.append("total")
+            unusual = conn.execute(
+                "with current_lines as ("
+                "    select sku, sum(quantity) as qty"
+                "    from order_lines"
+                "    where order_id = %s and version = %s"
+                "    group by sku"
+                "), history as ("
+                "    select o.id, ol.sku, sum(ol.quantity) as order_qty"
+                "    from orders o"
+                "    join order_lines ol on ol.order_id = o.id and ol.version = %s"
+                "    where o.customer_id = %s"
+                "      and o.status in ('confirmed', 'fulfilled')"
+                "      and o.id <> %s"
+                "    group by o.id, ol.sku"
+                "), medians as ("
+                "    select sku, percentile_cont(0.5) within group (order by order_qty)::numeric as median_qty"
+                "    from history"
+                "    group by sku"
+                "    having count(*) >= %s"
+                ")"
+                " select c.qty, m.median_qty"
+                " from current_lines c"
+                " join medians m on m.sku = c.sku",
+                (order_id, LINE_VERSION, LINE_VERSION, customer_id, order_id, quantity_min_history),
+            ).fetchall()
+            if any(row["qty"] > quantity_factor * row["median_qty"] for row in unusual):
+                reasons.append("quantity")
             try:
                 with conn.transaction():
                     needed = conn.execute(
