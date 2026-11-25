@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
 import { formatDateTime, one } from '@/lib/format';
-import { requireUser } from '@/lib/supabase';
+import { getSupabaseConfig, requireUser } from '@/lib/supabase';
+import { LiveRefresh } from '@/components/LiveRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,14 @@ export default async function ConversationsPage() {
   return (
     <>
       <Nav email={user.email} active="conversations" />
+      <LiveRefresh
+        {...getSupabaseConfig()}
+        channelName="conversations"
+        subscriptions={[
+          { table: 'messages', event: 'INSERT' },
+          { table: 'orders', event: 'INSERT' },
+        ]}
+      />
       <main className="container">
         <div className="page-header">
           <h1 className="page-title">Conversations</h1>

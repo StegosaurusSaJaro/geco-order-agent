@@ -9,7 +9,8 @@ import {
   hasActiveFilters,
   parseOrderFilters,
 } from '@/lib/orders';
-import { requireUser } from '@/lib/supabase';
+import { getSupabaseConfig, requireUser } from '@/lib/supabase';
+import { LiveRefresh } from '@/components/LiveRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   return (
     <>
       <Nav email={user.email} active="orders" />
+      <LiveRefresh
+        {...getSupabaseConfig()}
+        channelName="orders"
+        subscriptions={[{ table: 'orders', event: '*' }]}
+      />
       <main className="container">
         <div className="page-header">
           <div className="page-row">

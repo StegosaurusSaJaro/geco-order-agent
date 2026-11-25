@@ -13,3 +13,11 @@ end
 $$;
 
 grant usage on schema public to anon, authenticated, service_role;
+
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end
+$$;

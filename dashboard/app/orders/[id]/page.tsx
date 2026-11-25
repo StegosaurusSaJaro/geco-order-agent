@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Nav } from '@/components/Nav';
 import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
-import { requireUser } from '@/lib/supabase';
+import { getSupabaseConfig, requireUser } from '@/lib/supabase';
+import { LiveRefresh } from '@/components/LiveRefresh';
 import { OrderReviewActions, reviewReasonLabel } from './OrderReviewActions';
 
 export const dynamic = 'force-dynamic';
@@ -88,6 +89,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   return (
     <>
       <Nav email={user.email} active="orders" />
+      <LiveRefresh
+        {...getSupabaseConfig()}
+        channelName={`order-${order.id}`}
+        subscriptions={[
+          { table: 'orders', event: 'UPDATE', filter: `id=eq.${order.id}` },
+          { table: 'messages', event: 'INSERT', filter: `conversation_id=eq.${order.conversation_id}` },
+        ]}
+      />
       <main className="container">
         <div className="page-header">
           <Link href="/orders" className="back-link">← Back to Orders</Link>
