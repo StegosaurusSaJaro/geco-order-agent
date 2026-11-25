@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Nav } from '@/components/Nav';
 import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
-import { requireUser } from '@/lib/supabase';
+import { getSupabaseConfig, requireUser } from '@/lib/supabase';
+import { LiveRefresh } from '@/components/LiveRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,11 @@ export default async function ConversationDetailPage({ params }: { params: Promi
   return (
     <>
       <Nav email={user.email} active="conversations" />
+      <LiveRefresh
+        {...getSupabaseConfig()}
+        channelName={`conversation-${id}`}
+        subscriptions={[{ table: 'messages', event: 'INSERT', filter: `conversation_id=eq.${id}` }]}
+      />
       <main className="container">
         <Link href="/conversations" className="back-link">← Conversations</Link>
         <div className="page-header">
