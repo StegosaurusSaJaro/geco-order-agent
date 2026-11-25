@@ -31,10 +31,19 @@ class Reply:
 
 
 class OrderBot:
-    def __init__(self, db: Database, reader: Reader, review_threshold: Decimal = Decimal("2000")):
+    def __init__(
+        self,
+        db: Database,
+        reader: Reader,
+        review_threshold: Decimal = Decimal("2000"),
+        quantity_factor: Decimal = Decimal("3"),
+        quantity_min_history: int = 2,
+    ):
         self.db = db
         self.reader = reader
         self.review_threshold = review_threshold
+        self.quantity_factor = quantity_factor
+        self.quantity_min_history = quantity_min_history
 
     async def on_text(self, user_id: int, chat_id: int, text: str, telegram_message_id=None) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
@@ -86,7 +95,15 @@ class OrderBot:
             self.db.save_message(conversation_id, "out", "bot", "text", ALREADY_HANDLED)
             return Reply(ALREADY_HANDLED)
         if action == "confirm":
-            text = CONFIRM_REPLIES[self.db.confirm(order_id, customer.id, self.review_threshold)]
+            text = CONFIRM_REPLIES[
+                self.db.confirm(
+                    order_id,
+                    customer.id,
+                    self.review_threshold,
+                    self.quantity_factor,
+                    self.quantity_min_history,
+                )
+            ]
         else:
             text = CANCELLED if self.db.cancel(order_id, customer.id) else ALREADY_HANDLED
         reply_id = self.db.save_message(conversation_id, "out", "bot", "text", text)
@@ -196,7 +213,16 @@ def main():
     settings = load_settings()
     db = Database(settings.db_url)
     reader = Reader(db.catalog(), db.unit_codes(), settings.model, settings.fallback_model)
-    build_app(settings.telegram_bot_token, OrderBot(db, reader, settings.review_threshold_usd)).run_polling()
+    build_app(
+        settings.telegram_bot_token,
+        OrderBot(
+            db,
+            reader,
+            settings.review_threshold_usd,
+            settings.quantity_factor,
+            settings.quantity_min_history,
+        ),
+    ).run_polling()
 
 
 if __name__ == "__main__":
