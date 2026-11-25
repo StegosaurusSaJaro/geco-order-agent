@@ -78,6 +78,73 @@ class Database:
             ).fetchall()
         return list(reversed(rows))
 
+    def history_before(self, conversation_id: str, before_ts, limit: int = RECENT_MESSAGE_COUNT) -> list[dict]:
+        with self.pool.connection() as conn:
+            rows = conn.execute(
+                "select author, body from messages"
+                " where conversation_id = %s and body is not null and created_at < %s"
+                " order by created_at desc limit %s",
+                (conversation_id, before_ts, limit),
+            ).fetchall()
+        return list(reversed(rows))
+
+    def recent_inbound_count(self, conversation_id: str, window_seconds: int) -> int:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "select count(*) as n from messages"
+                " where conversation_id = %s and direction = 'in' and kind <> 'button'"
+                " and created_at >= now() - make_interval(secs => %s)",
+                (conversation_id, window_seconds),
+            ).fetchone()
+        return row["n"]
+
+    def log_screening(
+        self,
+        telegram_user_id: int,
+        decision: str,
+        reason: str,
+        latency_ms: int,
+        message_id=None,
+        conversation_id=None,
+        status: str = "held",
+    ) -> int:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "insert into screening_log"
+                " (telegram_user_id, decision, reason, latency_ms, message_id, conversation_id, status)"
+                " values (%s, %s, %s, %s, %s, %s, %s) returning id",
+                (telegram_user_id, decision, reason, latency_ms, message_id, conversation_id, status),
+            ).fetchone()
+        return row["id"]
+
+    def claim_released_flag(self) -> dict | None:
+        with self.pool.connection() as conn:
+            claimed = conn.execute(
+                "update screening_log set status = 'processed'"
+                " where id = ("
+                "     select id from screening_log"
+                "     where status = 'released'"
+                "     order by reviewed_at"
+                "     limit 1"
+                "     for update skip locked"
+                " ) returning id, message_id::text, conversation_id::text, telegram_user_id"
+            ).fetchone()
+            if claimed is None:
+                return None
+            detail = conn.execute(
+                "select m.body, m.kind, m.file_name, m.created_at,"
+                " conv.telegram_chat_id, conv.customer_id::text,"
+                " c.name as customer_name, c.tier_id, c.telegram_user_id as customer_telegram_user_id"
+                " from messages m"
+                " join conversations conv on conv.id = m.conversation_id"
+                " join customers c on c.id = conv.customer_id"
+                " where m.id = %s",
+                (claimed["message_id"],),
+            ).fetchone()
+        if detail is None:
+            return None
+        return {**claimed, **detail}
+
     def catalog(self) -> list[dict]:
         with self.pool.connection() as conn:
             return conn.execute(

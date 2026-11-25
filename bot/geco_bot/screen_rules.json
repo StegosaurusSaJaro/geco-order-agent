@@ -1,0 +1,27 @@
+{
+  "abuse": [
+    "fuck",
+    "shit",
+    "bitch",
+    "ass",
+    "asshole",
+    "bastard",
+    "cunt",
+    "dick",
+    "idiot",
+    "moron"
+  ],
+  "injection": [
+    "ignore previous instructions",
+    "ignore all previous",
+    "system prompt",
+    "you are now",
+    "developer mode"
+  ],
+  "spam": [
+    "https?://",
+    "www\\.",
+    "t\\.me/",
+    "bit\\.ly/"
+  ]
+}

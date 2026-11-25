@@ -18,6 +18,8 @@ class Settings:
     quantity_factor: Decimal
     quantity_min_history: int
     poll_seconds: float
+    FLOOD_MAX_MESSAGES: int = 8
+    FLOOD_WINDOW_SECONDS: int = 60
 
 
 def load_settings() -> Settings:
@@ -31,4 +33,6 @@ def load_settings() -> Settings:
         quantity_factor=Decimal(os.environ.get("QUANTITY_FACTOR") or "3"),
         quantity_min_history=int(os.environ.get("QUANTITY_MIN_HISTORY") or "2"),
         poll_seconds=float(os.environ.get("POLL_SECONDS") or "5"),
+        FLOOD_MAX_MESSAGES=int(os.environ.get("FLOOD_MAX_MESSAGES") or "8"),
+        FLOOD_WINDOW_SECONDS=int(os.environ.get("FLOOD_WINDOW_SECONDS") or "60"),
     )
