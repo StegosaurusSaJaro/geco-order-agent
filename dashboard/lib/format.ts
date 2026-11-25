@@ -34,7 +34,7 @@ export function formatDateTime(iso: string | null | undefined): string {
 }
 
 export function shortId(id: string): string {
-  return id.slice(0, 8);
+  return id.replace(/-/g, '').slice(-8);
 }
 
 export function statusLabel(status: string): string {
