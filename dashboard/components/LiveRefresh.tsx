@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 
 export type LiveSubscription = {
-  table: 'messages' | 'orders';
+  table: 'messages' | 'orders' | 'screening_log';
   event: 'INSERT' | 'UPDATE' | '*';
   filter?: string;
 };
