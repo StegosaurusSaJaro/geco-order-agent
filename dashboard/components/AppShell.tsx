@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Fragment } from 'react';
-import { BarChart3, Box, Flag, Inbox, LogOut, MessageSquare, Package } from 'lucide-react';
+import { BarChart3, Box, Flag, Inbox, LogOut, MessageSquare, Package, UserPlus } from 'lucide-react';
 import { signOutAction } from '@/app/login/actions';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,7 +11,7 @@ export type BreadcrumbItem = {
   href?: string;
 };
 
-type NavSection = 'orders' | 'conversations' | 'inventory' | 'reports' | 'flagged';
+type NavSection = 'orders' | 'conversations' | 'inventory' | 'reports' | 'flagged' | 'signups';
 
 type AppShellProps = {
   email: string | undefined;
@@ -36,6 +36,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { key: 'inventory', label: 'Inventory', href: '/inventory', icon: Box },
   { key: 'reports', label: 'Reports', href: '/reports', icon: BarChart3 },
   { key: 'flagged', label: 'Flagged', href: '/flagged', icon: Flag },
+  { key: 'signups', label: 'Sign-ups', href: '/signups', icon: UserPlus },
 ];
 
 function getInitials(email: string | undefined): string {
