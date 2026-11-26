@@ -60,7 +60,7 @@ def test_double_confirm_saves_once_and_deducts_once(bot, db, reader, monkeypatch
     draft = run(bot.on_text(CAFE, CHAT, "3 ctn oat milk"))
     first = run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id))
     second = run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id))
-    assert first.text == main.CONFIRM_REPLIES["confirmed"]
+    assert first.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $85.50\nThank you!"
     assert second.text == main.ALREADY_HANDLED
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
     assert scalar(db, "select stock_qty from products where sku = %s", OAT) == before - 3
@@ -71,7 +71,7 @@ def test_short_stock_is_marked_and_held_on_confirm(bot, db, reader, monkeypatch)
     answer(reader, monkeypatch, intent="order", reply="Got it.",
            lines=[{"sku": "DRY-EGG-30", "quantity": 8, "unit": "TRAY30", "raw_text": "8 trays eggs"}])
     draft = run(bot.on_text(CAFE, CHAT, "8 trays eggs"))
-    assert "only 5 available" in draft.text
+    assert "⚠️ Only 5 available" in draft.text
     held = run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id))
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"

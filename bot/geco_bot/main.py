@@ -29,7 +29,6 @@ UNKNOWN_SENDER = "Sorry, this Telegram account is not registered with GECO. Plea
 READ_FAILED = "Sorry, I couldn't read that, please try again"
 FILES_LATER = "Please type your order as a message for now"
 CONFIRM_REPLIES = {
-    "confirmed": "Your order is confirmed. Thank you!",
     "held": "Our staff will check this order and get back to you.",
     "handled": "This order was already handled.",
 }
@@ -39,7 +38,7 @@ RECEIPT_UNAVAILABLE = "Receipt is only available for confirmed orders."
 RESEND_FILE_REPLY = "Please send the file again"
 RESEND_ORDER_REPLY = "Please send your order again so I can build a fresh draft."
 REJECT_NOTICE_TEXT = "Sorry, we couldn't accept order {ref}. A member of the GECO team will contact you shortly."
-OPEN_DRAFT_REMINDER = "You still have an open draft:"
+OPEN_DRAFT_REMINDER = "You still have an open draft"
 DRAFT_REMINDER_INTENTS = ("question", "chit-chat")
 
 
@@ -182,12 +181,12 @@ class OrderBot:
                 log.exception("Failed to process released flag %s", flag["id"])
         return processed
 
-    def _render_draft(self, customer, draft: dict) -> tuple[str, str | None]:
+    def _render_draft(self, customer, draft: dict, heading: str = orders.DRAFT_HEADING) -> tuple[str, str | None]:
         products = self.db.price_and_stock(customer.tier_id, [line["sku"] for line in draft["lines"]])
         lines, unpriced, total = orders.price_lines(draft["lines"], products)
         if unpriced:
             return join(orders.dropped_text(unpriced), RESEND_ORDER_REPLY), None
-        return orders.draft_text(lines, products, total, []), draft["id"]
+        return orders.draft_text(lines, products, total, [], heading=heading), draft["id"]
 
     def compose(self, customer, conversation_id, reading, source: str = "text", draft: dict | None = None) -> Reply:
         if reading is None:
@@ -200,8 +199,10 @@ class OrderBot:
             body, order_id = self._render_draft(customer, draft)
             return Reply(join(said, body), order_id)
         if reading.intent in DRAFT_REMINDER_INTENTS and not reading.edit_draft and draft and draft.get("lines"):
-            body, order_id = self._render_draft(customer, draft)
-            return Reply(join(said, OPEN_DRAFT_REMINDER, body), order_id)
+            body, order_id = self._render_draft(customer, draft, heading=OPEN_DRAFT_REMINDER)
+            if order_id is None:
+                body = join(f"{OPEN_DRAFT_REMINDER}:", body)
+            return Reply(join(said, body), order_id)
         if reading.intent != "order" and not reading.edit_draft:
             return Reply(said)
         kept, dropped = check_lines(reading.lines, self.reader.catalog_by_sku)
@@ -276,7 +277,19 @@ class OrderBot:
                 self.quantity_factor,
                 self.quantity_min_history,
             )
-            text = CONFIRM_REPLIES[outcome]
+            if outcome == "confirmed":
+                order = self.db.receipt_data(order_id)
+                if order is None:
+                    raise RuntimeError(f"Missing receipt data for confirmed order {order_id}")
+                count = len(order["lines"])
+                items = "item" if count == 1 else "items"
+                text = (
+                    f"Order {order_ref(order)} confirmed\n"
+                    f"{count} {items} · Total {orders.money(order['total'])}\n"
+                    "Thank you!"
+                )
+            else:
+                text = CONFIRM_REPLIES[outcome]
             reply_id = self.db.save_message(conversation_id, "out", "bot", "text", text)
             self.db.link_messages(order_id, [pressed_id, reply_id])
             return Reply(text, order_id, show_receipt_button=(outcome == "confirmed"))

@@ -48,7 +48,7 @@ def test_edit_replaces_lines_on_same_order(bot, db, reader, monkeypatch):
     edited = run(bot.on_text(CAFE, CHAT, "make the oat milk 5"))
 
     assert edited.order_id == draft.order_id
-    assert "5 x" in edited.text and "$142.50" in edited.text
+    assert "5 ×" in edited.text and "$142.50" in edited.text
     assert scalar(db, "select count(*) from orders where conversation_id = (select id from conversations where telegram_chat_id = %s limit 1)", CHAT) == 1
     assert scalar(db, "select total from orders where id = %s", draft.order_id) == Decimal("142.50")
     assert scalar(db, "select count(*) from order_lines where order_id = %s and version = 1", draft.order_id) == 1
@@ -113,7 +113,7 @@ def test_under_threshold_order_confirms(bot, db, reader, monkeypatch):
     assert scalar(db, "select total from orders where id = %s", draft.order_id) == Decimal("1975.05")
 
     confirmed = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id))
-    assert confirmed.text == main.CONFIRM_REPLIES["confirmed"]
+    assert confirmed.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $1,975.05\nThank you!"
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
     assert scalar(db, "select stock_qty from products where sku = %s", OAT) == before - 77
 
