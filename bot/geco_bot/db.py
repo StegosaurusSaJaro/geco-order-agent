@@ -215,6 +215,11 @@ class Database:
         po_number: str | None = None,
     ) -> str:
         with self.pool.connection() as conn, conn.transaction():
+            conn.execute(
+                "update orders set status = 'cancelled', updated_at = now()"
+                " where customer_id = %s and conversation_id = %s and status = 'draft'",
+                (customer_id, conversation_id),
+            )
             order_id = conn.execute(
                 "insert into orders (customer_id, conversation_id, status, source, po_number, total)"
                 " values (%s, %s, 'draft', %s, %s, %s) returning id::text",

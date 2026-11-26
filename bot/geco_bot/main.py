@@ -531,14 +531,12 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
         await query.answer()
         action, order_id = query.data.split(":", 1)
         reply = await bot.on_button(update.effective_user.id, query.message.chat_id, action, order_id)
-        if action != "receipt":
-            await query.edit_message_reply_markup(reply_markup=None)
+        await query.edit_message_reply_markup(reply_markup=None)
         if reply.document is not None:
             if query.message.chat_id > 0:
                 await query.message.reply_document(
                     document=io.BytesIO(reply.document),
                     filename=reply.file_name,
-                    reply_markup=receipt_button(order_id),
                 )
         else:
             await query.message.reply_text(
