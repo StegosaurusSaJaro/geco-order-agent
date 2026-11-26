@@ -64,7 +64,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
-      <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:justify-between bg-sidebar border-r border-sidebar-border p-3">
+      <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:justify-between md:sticky md:top-0 md:h-screen md:overflow-y-auto bg-sidebar border-r border-sidebar-border p-3">
         <div>
           <Link
             href="/orders"

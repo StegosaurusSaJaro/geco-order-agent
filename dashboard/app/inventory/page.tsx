@@ -23,7 +23,7 @@ import { StockRow } from './StockRow';
 
 export const dynamic = 'force-dynamic';
 
-const INVENTORY_PAGE_SIZE = 20;
+const INVENTORY_PAGE_SIZE = 10;
 
 const CATEGORY_LABELS = {
   dairy: 'Dairy',

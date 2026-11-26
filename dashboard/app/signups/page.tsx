@@ -20,6 +20,8 @@ import { SignupActions, SignupOutcome, type TierOption } from './SignupActions';
 
 export const dynamic = 'force-dynamic';
 
+const RECENT_DECISIONS_LIMIT = 10;
+
 type PendingSignupRow = {
   id: number;
   telegram_user_id: number | string;
@@ -112,7 +114,7 @@ export default async function SignupsPage() {
       .in('status', ['approved', 'rejected'])
       .order('decided_at', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false })
-      .limit(20),
+      .limit(RECENT_DECISIONS_LIMIT),
     supabase
       .from('tiers')
       .select('id, code, name')

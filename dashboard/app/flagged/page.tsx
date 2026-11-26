@@ -22,6 +22,8 @@ import { FlagActions } from './FlagActions';
 
 export const dynamic = 'force-dynamic';
 
+const RECENT_DECISIONS_LIMIT = 10;
+
 type MessageJoin = {
   body: string | null;
   kind: string;
@@ -113,7 +115,7 @@ export default async function FlaggedPage() {
       .in('status', ['released', 'processed', 'dismissed'])
       .order('reviewed_at', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false })
-      .limit(20),
+      .limit(RECENT_DECISIONS_LIMIT),
   ]);
 
   const queryError = heldRes.error ?? recentRes.error;

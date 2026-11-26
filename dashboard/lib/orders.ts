@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { one, shortId, statusLabel } from '@/lib/format';
 
 export const LOW_STOCK_PACKS = 10;
+export const LOW_STOCK_LIST_LIMIT = 8;
 
 export const ORDER_STATUSES = [
   'draft',
@@ -139,11 +140,19 @@ export type HeldOrder = {
   customer_name: string;
 };
 
+export type LowStockItem = {
+  sku: string;
+  name: string;
+  stock_qty: number;
+  unit_code: string;
+};
+
 export type HomeOrdersData = {
   heldOrders: HeldOrder[];
   ordersToday: number;
   ordersYesterday: number;
   lowStockCount: number;
+  lowStockItems: LowStockItem[];
   recentOrders: FilteredOrder[];
   totalOrders: number;
   error: string | null;
@@ -157,6 +166,13 @@ type RawHeldOrderRow = {
   review_reasons: string[] | null;
   updated_at: string;
   customers: { name: string } | { name: string }[] | null;
+};
+
+type RawLowStockRow = {
+  sku: string;
+  name: string;
+  stock_qty: number | string;
+  unit_code: string;
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -453,9 +469,12 @@ export async function fetchHomeOrdersData(
       .lt('created_at', `${today}T00:00:00+08:00`),
     supabase
       .from('products')
-      .select('sku', { count: 'exact', head: true })
+      .select('sku, name, stock_qty, unit_code', { count: 'exact' })
       .eq('active', true)
-      .lte('stock_qty', LOW_STOCK_PACKS),
+      .lte('stock_qty', LOW_STOCK_PACKS)
+      .order('stock_qty', { ascending: true })
+      .order('sku', { ascending: true })
+      .limit(LOW_STOCK_LIST_LIMIT),
     supabase
       .from('orders')
       .select(recentSelect, { count: 'exact' })
@@ -477,11 +496,21 @@ export async function fetchHomeOrdersData(
       ordersToday: 0,
       ordersYesterday: 0,
       lowStockCount: 0,
+      lowStockItems: [],
       recentOrders: [],
       totalOrders: 0,
       error: firstError.message,
     };
   }
+
+  const lowStockItems: LowStockItem[] = (
+    (lowStockRes.data ?? []) as unknown as RawLowStockRow[]
+  ).map((row) => ({
+    sku: row.sku,
+    name: row.name,
+    stock_qty: toNumber(row.stock_qty),
+    unit_code: row.unit_code,
+  }));
 
   const totalOrders = recentRes.count ?? 0;
   let rawRecent = (recentRes.data ?? []) as unknown as RawOrderRow[];
@@ -502,6 +531,7 @@ export async function fetchHomeOrdersData(
         ordersToday: todayRes.count ?? 0,
         ordersYesterday: yesterdayRes.count ?? 0,
         lowStockCount: lowStockRes.count ?? 0,
+        lowStockItems,
         recentOrders: [],
         totalOrders,
         error: clampedRes.error.message,
@@ -527,6 +557,7 @@ export async function fetchHomeOrdersData(
     ordersToday: todayRes.count ?? 0,
     ordersYesterday: yesterdayRes.count ?? 0,
     lowStockCount: lowStockRes.count ?? 0,
+    lowStockItems,
     recentOrders: rawRecent.map(mapRawOrder),
     totalOrders,
     error: null,
