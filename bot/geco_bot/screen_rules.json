@@ -14,9 +14,9 @@
   "injection": [
     "\\bignore\\s+previous\\s+instructions\\b",
     "\\bignore\\s+all\\s+previous\\b",
-    "\\bignore\\s+(?:(?:all|your|the)\\s+)+(?:previous\\s+)?(?:instructions|rules)\\b",
+    "\\bignore\\s+(?:(?:(?:all\\s+)?your\\s+(?:previous\\s+)?|all\\s+(?:previous\\s+)?|previous\\s+)(?:instructions|rules)\\b|the\\s+rules(?=\\s*(?:$|[.,!?;:]|\\band\\b)))",
     "\\bignore\\s+the\\s+above\\b",
-    "\\bdisregard\\s+(?:(?:(?:your|all|the)\\s+)*(?:previous\\s+)?(?:instructions|rules)|(?:all\\s+)?previous)\\b",
+    "\\bdisregard\\s+(?:(?:(?:all\\s+)?your\\s+(?:previous\\s+)?|all\\s+(?:previous\\s+)?|previous\\s+)(?:instructions|rules)\\b|the\\s+rules(?=\\s*(?:$|[.,!?;:]|\\band\\b))|(?:all\\s+)?previous\\b)",
     "\\bforget\\s+(?:your|all|previous)\\s+(?:instructions|rules)\\b",
     "\\bnew\\s+instructions:",
     "\\bsystem\\s+prompt\\b",
