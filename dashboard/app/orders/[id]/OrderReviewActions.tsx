@@ -5,24 +5,13 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { reviewReasonLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import {
   approveOrderAction,
   rejectOrderAction,
   type ReviewActionState,
 } from './actions';
-
-const REASON_LABELS: Record<string, string> = {
-  total: 'Over the $2,000 review limit',
-  over_threshold: 'Over the $2,000 review limit',
-  stock: 'Not enough stock',
-  price_mismatch: 'Price mismatch',
-  quantity: 'Unusual quantity',
-};
-
-export function reviewReasonLabel(reason: string): string {
-  return REASON_LABELS[reason] ?? reason;
-}
 
 type Props = {
   orderId: string;

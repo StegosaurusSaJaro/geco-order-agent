@@ -45,3 +45,15 @@ export function statusLabel(status: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
+
+const REVIEW_REASON_LABELS: Record<string, string> = {
+  total: 'Over the $2,000 review limit',
+  over_threshold: 'Over the $2,000 review limit',
+  stock: 'Not enough stock',
+  price_mismatch: 'Price mismatch',
+  quantity: 'Unusual quantity',
+};
+
+export function reviewReasonLabel(reason: string): string {
+  return REVIEW_REASON_LABELS[reason] ?? reason;
+}
