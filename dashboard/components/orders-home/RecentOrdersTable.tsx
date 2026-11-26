@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge, TierBadge } from '@/components/StatusBadge';
 import {
@@ -24,7 +23,7 @@ export function RecentOrdersTable({ orders, totalOrders, pages }: RecentOrdersTa
   return (
     <section
       aria-labelledby="recent-orders-heading"
-      className="rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(24,27,49,0.04)] overflow-hidden"
+      className="min-w-0 rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(24,27,49,0.04)] overflow-hidden"
     >
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 border-b border-border/70 px-5 py-3.5">
         <div className="flex items-center gap-2">
@@ -38,18 +37,14 @@ export function RecentOrdersTable({ orders, totalOrders, pages }: RecentOrdersTa
             {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
           </span>
         </div>
-        <Link
-          href="/reports"
-          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-all duration-150 ease-out hover:text-foreground active:scale-[0.98]"
-        >
-          Reports
-          <ArrowUpRight className="size-3.5" />
-        </Link>
       </div>
 
       {totalOrders === 0 ? (
-        <div className="px-5 py-12 text-center text-sm text-muted-foreground">
-          No orders yet.
+        <div className="px-5 py-12 text-center">
+          <p className="text-sm font-medium text-foreground">No orders yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            New wholesale orders will appear here as they arrive.
+          </p>
         </div>
       ) : (
         <Table>
@@ -84,7 +79,7 @@ export function RecentOrdersTable({ orders, totalOrders, pages }: RecentOrdersTa
                 <TableCell className="px-5 py-3.5">
                   <Link
                     href={`/orders/${order.id}`}
-                    className="font-medium text-foreground transition-colors duration-150 ease-out hover:text-[var(--brand-crimson)] hover:underline underline-offset-4"
+                    className="rounded-sm font-medium text-foreground transition-colors duration-150 ease-out hover:text-[var(--brand-crimson)] hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
                   >
                     <span className="font-mono tabular-nums">#{shortId(order.id)}</span>
                     {order.po_number ? (
@@ -95,12 +90,19 @@ export function RecentOrdersTable({ orders, totalOrders, pages }: RecentOrdersTa
                     ) : null}
                   </Link>
                 </TableCell>
-                <TableCell className="px-5 py-3.5">{order.customer_name}</TableCell>
+                <TableCell
+                  className="px-5 py-3.5 max-w-[220px] truncate"
+                  title={order.customer_name}
+                >
+                  {order.customer_name}
+                </TableCell>
                 <TableCell className="px-5 py-3.5">
                   {order.tier_code ? (
                     <TierBadge name={order.tier_name} />
                   ) : (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground" aria-label="No tier">
+                      -
+                    </span>
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-3.5">

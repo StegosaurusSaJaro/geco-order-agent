@@ -42,26 +42,19 @@ export function LowStockPanel({ items, totalCount, threshold }: LowStockPanelPro
 
           <Link
             href="/inventory"
-            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-all duration-150 ease-out hover:text-foreground active:scale-[0.98] shrink-0"
+            className="inline-flex items-center gap-1 rounded-sm px-1 py-1.5 -my-1.5 text-xs font-medium text-muted-foreground transition-[color,transform] duration-150 ease-out hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 shrink-0"
           >
             Inventory
-            <ArrowUpRight className="size-3.5" />
+            <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </Link>
         </div>
 
         {visibleItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1.5 px-5 py-10 text-center">
+          <div className="flex flex-col items-center justify-center gap-1 px-5 py-10 text-center">
             <p className="text-sm font-medium text-foreground">All stocked</p>
             <p className="text-xs text-muted-foreground tabular-nums">
               No active products at or below {threshold} packs.
             </p>
-            <Link
-              href="/inventory"
-              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-all duration-150 ease-out hover:text-foreground active:scale-[0.98]"
-            >
-              View inventory
-              <ArrowUpRight className="size-3.5" />
-            </Link>
           </div>
         ) : (
           <ul className="divide-y divide-border/70">
@@ -73,14 +66,24 @@ export function LowStockPanel({ items, totalCount, threshold }: LowStockPanelPro
                   className="flex items-center justify-between gap-3 px-5 py-3 transition-colors duration-150 ease-out hover:bg-sidebar/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground truncate">
+                    <div
+                      className="text-sm font-medium text-foreground truncate"
+                      title={item.name}
+                    >
                       {item.name}
                     </div>
                     <div className="mt-0.5 font-mono text-xs text-muted-foreground tabular-nums">
                       {item.sku}
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-sidebar/50 px-2.5 py-1 font-mono text-xs font-medium tabular-nums text-foreground shrink-0">
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shrink-0',
+                      isOutOfStock
+                        ? 'border-destructive/30 bg-[var(--destructive-soft)] text-destructive'
+                        : 'border-border/80 bg-sidebar/50 font-mono tabular-nums text-foreground'
+                    )}
+                  >
                     <span
                       aria-hidden="true"
                       className={cn(
@@ -90,7 +93,20 @@ export function LowStockPanel({ items, totalCount, threshold }: LowStockPanelPro
                           : 'bg-[var(--dot-amber)] ring-1 ring-foreground/15'
                       )}
                     />
-                    {item.stock_qty} {item.unit_code}
+                    {isOutOfStock ? (
+                      <>
+                        <span className="sr-only">Out of stock: </span>
+                        <span className="font-mono tabular-nums">
+                          {item.stock_qty} {item.unit_code}
+                        </span>
+                        <span>· Out</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="sr-only">Low stock: </span>
+                        {item.stock_qty} {item.unit_code}
+                      </>
+                    )}
                   </span>
                 </li>
               );
@@ -105,10 +121,10 @@ export function LowStockPanel({ items, totalCount, threshold }: LowStockPanelPro
             </span>
             <Link
               href="/inventory"
-              className="inline-flex items-center gap-1 font-medium text-foreground transition-all duration-150 ease-out hover:text-[var(--brand-crimson)] active:scale-[0.98]"
+              className="inline-flex items-center gap-1 rounded-sm px-1 py-1 -my-1 font-medium text-foreground transition-[color,transform] duration-150 ease-out hover:text-[var(--brand-crimson)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
             >
               View all in Inventory
-              <ArrowUpRight className="size-3.5" />
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
             </Link>
           </div>
         ) : null}

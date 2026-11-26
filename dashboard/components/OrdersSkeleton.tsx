@@ -15,14 +15,11 @@ const TABLE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
 export function OrdersSkeleton() {
   return (
-    <>
-      <section
-        aria-label="Loading metrics"
-        className="rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(24,27,49,0.04)] overflow-hidden"
-      >
+    <div role="status" aria-busy="true" aria-label="Loading orders dashboard" className="contents">
+      <section aria-label="Loading metrics" className="border-y border-border/80">
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
           {METRIC_TILES.map((idx) => (
-            <div key={idx} className="flex flex-col gap-2.5 px-5 py-4">
+            <div key={idx} className="flex flex-col gap-2 px-4 py-3.5 sm:px-5">
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-7 w-14" />
               <Skeleton className="h-3 w-28" />
@@ -81,7 +78,6 @@ export function OrdersSkeleton() {
       <div className="rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(24,27,49,0.04)] overflow-hidden">
         <div className="flex items-center justify-between gap-2 border-b border-border/70 px-5 py-3.5">
           <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3.5 w-16" />
         </div>
         <Table>
           <TableHeader className="bg-sidebar/50">
@@ -120,6 +116,6 @@ export function OrdersSkeleton() {
           </TableBody>
         </Table>
       </div>
-    </>
+    </div>
   );
 }

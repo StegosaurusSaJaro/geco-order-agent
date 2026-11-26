@@ -51,7 +51,7 @@ async function OrdersContent({
     <>
       {error ? (
         <Alert variant="destructive">
-          <AlertCircle className="size-4" />
+          <AlertCircle className="size-4" aria-hidden="true" />
           <AlertDescription>Failed to load orders: {error}</AlertDescription>
         </Alert>
       ) : null}
@@ -107,10 +107,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           </div>
           <Link
             href="/reports"
-            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-all duration-150 ease-out hover:text-foreground active:scale-[0.98]"
+            className="inline-flex items-center gap-1 rounded-sm px-1 py-1.5 -my-1.5 text-xs font-medium text-muted-foreground transition-[color,transform] duration-150 ease-out hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
           >
             Reports
-            <ArrowUpRight className="size-3.5" />
+            <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </Link>
         </div>
 

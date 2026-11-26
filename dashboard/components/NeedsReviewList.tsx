@@ -41,17 +41,17 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
               Needs Review
             </h2>
             <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-              {orders.length} held · Oldest first
+              {orders.length === 0 ? '0 held' : `${orders.length} held · Oldest first`}
             </span>
           </div>
 
           {hasOverflow ? (
             <Link
               href="/reports?status=needs_review"
-              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-all duration-150 ease-out hover:text-foreground active:scale-[0.98] shrink-0"
+              className="inline-flex items-center gap-1 rounded-sm px-1 py-1.5 -my-1.5 text-xs font-medium text-muted-foreground transition-[color,transform] duration-150 ease-out hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 shrink-0"
             >
               View all {orders.length}
-              <ArrowUpRight className="size-3.5" />
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
             </Link>
           ) : null}
         </div>
@@ -59,7 +59,9 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
         {visibleOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-1 px-5 py-10 text-center">
             <p className="text-sm font-medium text-foreground">All clear</p>
-            <p className="text-xs text-muted-foreground">Nothing waiting for review.</p>
+            <p className="text-xs text-muted-foreground">
+              No held orders waiting for staff confirmation.
+            </p>
           </div>
         ) : (
           <ul className="divide-y divide-border/70">
@@ -76,20 +78,23 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
                   key={order.id}
                   className="flex flex-col gap-3 px-5 py-3.5 transition-colors duration-150 ease-out hover:bg-sidebar/50 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex flex-col gap-1.5 min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
                       <Link
                         href={`/orders/${order.id}`}
-                        className="font-mono text-sm font-semibold text-foreground transition-colors duration-150 ease-out hover:text-[var(--brand-crimson)] hover:underline underline-offset-4 tabular-nums"
+                        className="rounded-sm font-mono text-sm font-semibold text-foreground transition-colors duration-150 ease-out hover:text-[var(--brand-crimson)] hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 tabular-nums shrink-0"
                       >
                         {refLabel}
                       </Link>
                       {order.po_number ? (
-                        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                        <span className="font-mono text-xs text-muted-foreground tabular-nums shrink-0">
                           #{shortId(order.id)}
                         </span>
                       ) : null}
-                      <span className="text-sm font-medium text-foreground">
+                      <span
+                        className="text-sm font-medium text-foreground truncate max-w-full"
+                        title={order.customer_name}
+                      >
                         {order.customer_name}
                       </span>
                     </div>
@@ -118,12 +123,12 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="transition-all duration-150 ease-out active:scale-[0.98]"
+                      className="transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.98]"
                       asChild
                     >
                       <Link href={`/orders/${order.id}`}>
                         Review
-                        <ArrowRight className="size-3.5" />
+                        <ArrowRight className="size-3.5" aria-hidden="true" />
                       </Link>
                     </Button>
                   </div>
@@ -140,10 +145,10 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
             </span>
             <Link
               href="/reports?status=needs_review"
-              className="inline-flex items-center gap-1 font-medium text-foreground transition-all duration-150 ease-out hover:text-[var(--brand-crimson)] active:scale-[0.98]"
+              className="inline-flex items-center gap-1 rounded-sm px-1 py-1 -my-1 font-medium text-foreground transition-[color,transform] duration-150 ease-out hover:text-[var(--brand-crimson)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
             >
               View full held list
-              <ArrowUpRight className="size-3.5" />
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
             </Link>
           </div>
         ) : null}

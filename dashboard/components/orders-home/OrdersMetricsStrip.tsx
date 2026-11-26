@@ -20,12 +20,12 @@ export function OrdersMetricsStrip({
   return (
     <section
       aria-label="Order desk metrics"
-      className="rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(24,27,49,0.04)] overflow-hidden"
+      className="border-y border-border/80"
     >
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
         <a
           href="#needs-review"
-          className="flex flex-col gap-2 px-5 py-4 text-left transition-all duration-150 ease-out hover:bg-sidebar/50 active:scale-[0.98]"
+          className="flex flex-col gap-1.5 px-4 py-3.5 sm:px-5 text-left transition-[background-color,transform] duration-150 ease-out hover:bg-sidebar/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
         >
           <div className="flex items-center justify-between text-[12.5px] font-medium text-muted-foreground">
             <span>Needs review</span>
@@ -42,7 +42,7 @@ export function OrdersMetricsStrip({
           <div className="text-xs text-muted-foreground tabular-nums">{needsReviewFoot}</div>
         </a>
 
-        <div className="flex flex-col gap-2 px-5 py-4 text-left">
+        <div className="flex flex-col gap-1.5 px-4 py-3.5 sm:px-5 text-left">
           <div className="flex items-center justify-between text-[12.5px] font-medium text-muted-foreground">
             <span>Orders today</span>
           </div>
@@ -56,7 +56,7 @@ export function OrdersMetricsStrip({
 
         <a
           href="#low-stock"
-          className="flex flex-col gap-2 px-5 py-4 text-left transition-all duration-150 ease-out hover:bg-sidebar/50 active:scale-[0.98]"
+          className="flex flex-col gap-1.5 px-4 py-3.5 sm:px-5 text-left transition-[background-color,transform] duration-150 ease-out hover:bg-sidebar/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
         >
           <div className="flex items-center justify-between text-[12.5px] font-medium text-muted-foreground">
             <span>Low stock</span>
