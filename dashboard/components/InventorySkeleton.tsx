@@ -27,7 +27,9 @@ export function InventorySkeleton() {
             <TableRow className="hover:bg-transparent">
               <TableHead className="pl-4 md:pl-6">SKU</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead>Unit</TableHead>
+              <TableHead className="hidden md:table-cell">Category</TableHead>
+              <TableHead className="hidden md:table-cell">Unit</TableHead>
+              <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right pr-4 md:pr-6">Stock</TableHead>
             </TableRow>
           </TableHeader>
@@ -40,8 +42,14 @@ export function InventorySkeleton() {
                 <TableCell className="py-3">
                   <Skeleton className="h-4 w-48" />
                 </TableCell>
-                <TableCell className="py-3">
+                <TableCell className="hidden md:table-cell py-3">
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell className="hidden md:table-cell py-3">
                   <Skeleton className="h-4 w-16" />
+                </TableCell>
+                <TableCell className="py-3 text-right">
+                  <Skeleton className="ml-auto h-4 w-16" />
                 </TableCell>
                 <TableCell className="pr-4 md:pr-6 py-3">
                   <div className="flex justify-end gap-2">
