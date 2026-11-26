@@ -6,10 +6,17 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+)
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
-from geco_bot import orders
+from geco_bot import onboarding, orders
 from geco_bot.config import load_settings
 from geco_bot.db import Customer, Database
 from geco_bot.reader import Reader, check_lines
@@ -39,6 +46,7 @@ class Reply:
     show_receipt_button: bool = False
     document: bytes | None = None
     file_name: str | None = None
+    reply_markup: object | None = None
 
 
 class OrderBot:
@@ -78,10 +86,28 @@ class OrderBot:
             self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
         return reply
 
-    async def on_text(self, user_id: int, chat_id: int, text: str, telegram_message_id=None) -> Reply:
+    async def on_text(
+        self,
+        user_id: int,
+        chat_id: int,
+        text: str,
+        telegram_message_id=None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        username: str | None = None,
+    ) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
         if customer is None:
-            return Reply(UNKNOWN_SENDER)
+            if chat_id < 0:
+                return Reply(onboarding.GROUP_SIGNUP_REPLY)
+            signup = self.db.open_signup(user_id)
+            outcome = onboarding.handle_text(signup, text)
+            if outcome.action == "create":
+                telegram_name = " ".join(p for p in (first_name, last_name) if p) or None
+                self.db.create_signup(user_id, chat_id, telegram_name, username)
+            elif outcome.action == "advance":
+                self.db.save_signup_answer(signup["id"], outcome.field, outcome.value, outcome.next_step)
+            return Reply(outcome.reply_text, reply_markup=_markup_for(outcome))
         conversation_id = self.db.conversation_id(customer.id, chat_id)
         history = self.db.recent_messages(conversation_id)
         draft = self.db.open_draft(customer.id, conversation_id)
@@ -167,6 +193,45 @@ class OrderBot:
             )
         return Reply(join(said, orders.draft_text(lines, products, total, dropped)), order_id)
 
+    async def on_contact(
+        self,
+        user_id: int,
+        chat_id: int,
+        phone_number: str,
+        contact_user_id: int | None,
+    ) -> Reply | None:
+        customer = self.db.customer_by_telegram_id(user_id)
+        if customer is not None:
+            return None
+        if chat_id < 0:
+            return Reply(onboarding.GROUP_SIGNUP_REPLY)
+        signup = self.db.open_signup(user_id)
+        outcome = onboarding.handle_contact(signup, user_id, phone_number, contact_user_id)
+        if outcome is None:
+            return None
+        if outcome.action == "advance":
+            self.db.save_signup_answer(signup["id"], outcome.field, outcome.value, outcome.next_step)
+        return Reply(outcome.reply_text, reply_markup=_markup_for(outcome))
+
+    async def on_signup_button(self, user_id: int, chat_id: int, action: str) -> Reply:
+        customer = self.db.customer_by_telegram_id(user_id)
+        if customer is not None:
+            return Reply(ALREADY_HANDLED)
+        if chat_id < 0:
+            return Reply(onboarding.GROUP_SIGNUP_REPLY)
+        signup = self.db.open_signup(user_id)
+        outcome = onboarding.handle_button(signup, action)
+        if outcome.action == "submit":
+            self.db.submit_signup(signup["id"])
+        elif outcome.action == "restart":
+            self.db.restart_signup(signup["id"])
+        return Reply(outcome.reply_text, reply_markup=_markup_for(outcome))
+
+    def on_unknown_file(self, user_id: int, chat_id: int) -> Reply:
+        if chat_id < 0:
+            return Reply(onboarding.GROUP_SIGNUP_REPLY)
+        return Reply(onboarding.UNKNOWN_FILE_REPLY)
+
     async def on_button(self, user_id: int, chat_id: int, action: str, order_id: str) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
         if customer is None:
@@ -219,7 +284,7 @@ class OrderBot:
     ) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
         if customer is None:
-            return Reply(UNKNOWN_SENDER)
+            return self.on_unknown_file(user_id, chat_id)
         conversation_id = self.db.conversation_id(customer.id, chat_id)
         history = self.db.recent_messages(conversation_id)
         draft = self.db.open_draft(customer.id, conversation_id)
@@ -284,6 +349,31 @@ def receipt_button(order_id: str) -> InlineKeyboardMarkup:
     ]])
 
 
+def phone_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("Share my number", request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def signup_review_buttons() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("Submit", callback_data="signup:submit"),
+        InlineKeyboardButton("Start over", callback_data="signup:restart"),
+    ]])
+
+
+def _markup_for(outcome: onboarding.StepOutcome) -> object | None:
+    if outcome.keyboard == "phone":
+        return phone_keyboard()
+    if outcome.keyboard == "remove":
+        return ReplyKeyboardRemove()
+    if outcome.keyboard == "review":
+        return signup_review_buttons()
+    return None
+
+
 async def process_receipts(app: Application, db: Database) -> int:
     sent = 0
     failed: list[str] = []
@@ -324,11 +414,54 @@ async def process_receipts(app: Application, db: Database) -> int:
     return sent
 
 
+async def process_signup_notices(app: Application, db: Database) -> int:
+    sent = 0
+    failed: list[int] = []
+    try:
+        while (notice := db.claim_due_signup_notice()) is not None:
+            try:
+                text = onboarding.format_notice(notice)
+                if notice["telegram_chat_id"] > 0:
+                    await app.bot.send_message(chat_id=notice["telegram_chat_id"], text=text)
+                sent += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Failed to send signup notice %s", notice["id"])
+                failed.append(notice["id"])
+    finally:
+        for failed_id in failed:
+            db.clear_signup_notice(failed_id)
+    return sent
+
+
 def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Application:
     async def text_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
-        reply = await bot.on_text(update.effective_user.id, msg.chat_id, msg.text, msg.message_id)
-        await msg.reply_text(reply.text, reply_markup=buttons(reply.order_id) if reply.order_id else None)
+        user = update.effective_user
+        reply = await bot.on_text(
+            user.id,
+            msg.chat_id,
+            msg.text,
+            msg.message_id,
+            first_name=user.first_name if user else None,
+            last_name=user.last_name if user else None,
+            username=user.username if user else None,
+        )
+        markup = reply.reply_markup if reply.reply_markup is not None else (buttons(reply.order_id) if reply.order_id else None)
+        await msg.reply_text(reply.text, reply_markup=markup)
+
+    async def contact_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
+        msg = update.effective_message
+        contact = msg.contact
+        reply = await bot.on_contact(
+            update.effective_user.id,
+            msg.chat_id,
+            contact.phone_number,
+            contact.user_id,
+        )
+        if reply is not None:
+            await msg.reply_text(reply.text, reply_markup=reply.reply_markup)
 
     async def button_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -350,8 +483,21 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
                 reply_markup=receipt_button(order_id) if reply.show_receipt_button else None,
             )
 
+    async def signup_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        action = query.data.split(":", 1)[1]
+        reply = await bot.on_signup_button(update.effective_user.id, query.message.chat_id, action)
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(reply.text, reply_markup=reply.reply_markup)
+
     async def file_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
+        user_id = update.effective_user.id
+        if bot.db.customer_by_telegram_id(user_id) is None:
+            reply = bot.on_unknown_file(user_id, msg.chat_id)
+            await msg.reply_text(reply.text, reply_markup=reply.reply_markup)
+            return
         if msg.document:
             doc = msg.document
             kind = "file"
@@ -365,7 +511,7 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
             file_mime = "image/jpeg"
         file_bytes = bytes(await tg_file.download_as_bytearray())
         reply = await bot.on_file(
-            update.effective_user.id, msg.chat_id, kind, msg.caption, file_name, file_mime, file_bytes, msg.message_id
+            user_id, msg.chat_id, kind, msg.caption, file_name, file_mime, file_bytes, msg.message_id
         )
         await msg.reply_text(reply.text, reply_markup=buttons(reply.order_id) if reply.order_id else None)
 
@@ -383,6 +529,12 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
                 raise
             except Exception:
                 log.exception("Released flag poll failed")
+            try:
+                await process_signup_notices(application, bot.db)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Signup notice poll failed")
             await asyncio.sleep(poll_seconds)
 
     async def post_init(application: Application):
@@ -397,7 +549,9 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
 
     app = Application.builder().token(token).post_init(post_init).post_shutdown(post_shutdown).build()
     app.add_handler(MessageHandler(filters.TEXT, text_handler))
+    app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(CallbackQueryHandler(button_handler, pattern=r"^(confirm|cancel|receipt):"))
+    app.add_handler(CallbackQueryHandler(signup_handler, pattern=r"^signup:(submit|restart)$"))
     app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, file_handler))
     return app
 
