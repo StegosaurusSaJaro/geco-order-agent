@@ -72,7 +72,7 @@ def test_question_with_draft_open_leaves_draft_unchanged(bot, db, reader, monkey
     answer(reader, monkeypatch, intent="question", edit_draft=False, reply="Almond milk is {price:DRY-ALM-1L}.")
     reply = run(bot.on_text(CAFE, CHAT, "how much is almond milk?"))
 
-    assert reply.order_id is None
+    assert reply.order_id == draft.order_id
     assert "$" in reply.text
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "draft"
     assert scalar(db, "select total from orders where id = %s", draft.order_id) == total_before
