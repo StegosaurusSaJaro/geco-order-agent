@@ -23,10 +23,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatCurrency, formatDateTime, one, shortId, statusLabel } from '@/lib/format';
+import {
+  formatCurrency,
+  formatDateTime,
+  one,
+  reviewReasonLabel,
+  shortId,
+  statusLabel,
+} from '@/lib/format';
 import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { OrderReviewActions, reviewReasonLabel } from './OrderReviewActions';
+import { OrderReviewActions } from './OrderReviewActions';
 
 export const dynamic = 'force-dynamic';
 

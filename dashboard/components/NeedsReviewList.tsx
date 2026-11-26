@@ -2,10 +2,9 @@
 
 import Link from 'next/link';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
-import { reviewReasonLabel } from '@/app/orders/[id]/OrderReviewActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, shortId } from '@/lib/format';
+import { formatCurrency, reviewReasonLabel, shortId } from '@/lib/format';
 import { formatWaitingAge, type HeldOrder } from '@/lib/orders';
 import { cn } from '@/lib/utils';
 
