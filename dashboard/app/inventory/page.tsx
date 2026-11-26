@@ -151,19 +151,19 @@ async function InventoryContent({
             Failed to load inventory: {error.message}
           </AlertDescription>
         </Alert>
-      ) : allProducts.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No active products found.
-          </CardContent>
-        </Card>
-      ) : filtered.length === 0 ? (
+      ) : hasFilters && filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
             <p>No products match.</p>
             <Button variant="outline" size="sm" asChild>
               <Link href="/inventory">Clear filters</Link>
             </Button>
+          </CardContent>
+        </Card>
+      ) : allProducts.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            No active products found.
           </CardContent>
         </Card>
       ) : (
