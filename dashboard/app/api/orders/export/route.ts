@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { buildCsv, buildXlsx, exportFilename } from '@/lib/export';
-import { buildExportRows, fetchOrdersData, parseOrderFilters } from '@/lib/orders';
+import { buildExportRows, buildOrderExportRows, fetchOrdersData, parseOrderFilters } from '@/lib/orders';
 import { createSupabaseServerClient } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const buffer = await buildXlsx(rows);
+  const buffer = await buildXlsx(buildOrderExportRows(orders, lines), rows);
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {

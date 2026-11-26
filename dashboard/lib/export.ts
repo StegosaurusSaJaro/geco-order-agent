@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import type { ExportRow, OrderFilters } from '@/lib/orders';
+import type { ExportRow, OrderExportRow, OrderFilters } from '@/lib/orders';
 
 export const EXPORT_HEADERS = [
   'Order',
@@ -55,12 +55,38 @@ export function buildCsv(rows: ExportRow[]): string {
   return lines.join('\r\n');
 }
 
-export async function buildXlsx(rows: ExportRow[]): Promise<Buffer> {
+export async function buildXlsx(orderRows: OrderExportRow[], rows: ExportRow[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'GECO Order Dashboard';
   workbook.created = new Date();
 
-  const sheet = workbook.addWorksheet('Orders');
+  const ordersSheet = workbook.addWorksheet('Orders');
+  ordersSheet.columns = [
+    { header: 'Order', key: 'order', width: 12 },
+    { header: 'Customer', key: 'customer', width: 26 },
+    { header: 'Tier', key: 'tier', width: 18 },
+    { header: 'Status', key: 'status', width: 15 },
+    { header: 'PO', key: 'po', width: 18 },
+    { header: 'Items', key: 'items', width: 10 },
+    { header: 'Total', key: 'total', width: 13 },
+    { header: 'Created', key: 'created', width: 24 },
+  ];
+  ordersSheet.getRow(1).font = { bold: true };
+  for (const row of orderRows) {
+    ordersSheet.addRow({
+      order: sanitizeText(row.order),
+      customer: sanitizeText(row.customer),
+      tier: sanitizeText(row.tier),
+      status: sanitizeText(row.status),
+      po: sanitizeText(row.po),
+      items: row.items,
+      total: row.total,
+      created: sanitizeText(row.created),
+    });
+  }
+  ordersSheet.getColumn('total').numFmt = '#,##0.00';
+
+  const sheet = workbook.addWorksheet('Lines');
   sheet.columns = [
     { header: 'Order', key: 'order', width: 12 },
     { header: 'Customer', key: 'customer', width: 26 },
