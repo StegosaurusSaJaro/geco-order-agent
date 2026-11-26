@@ -75,7 +75,7 @@ export function AppShell({
             </div>
             <div>
               <div className="text-[13.5px] font-semibold leading-tight">
-                GECO Asia
+                Iloilo Superb Mart
               </div>
               <div className="text-[11.5px] text-muted-foreground leading-tight">
                 Order Desk
@@ -162,14 +162,14 @@ export function AppShell({
           >
             <Link
               href="/orders"
-              aria-label="GECO Asia"
+              aria-label="Iloilo Superb Mart"
               className="md:hidden size-6 rounded-md bg-[var(--brand-crimson)] text-white grid place-items-center shrink-0"
             >
               <Package className="size-3.5" />
             </Link>
             <span className="md:hidden text-muted-foreground">/</span>
             <span className="hidden md:inline text-muted-foreground shrink-0">
-              GECO Asia
+              Iloilo Superb Mart
             </span>
             <span className="hidden md:inline text-muted-foreground">/</span>
             {crumbs.map((crumb, index) => {

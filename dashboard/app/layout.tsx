@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'GECO Order Dashboard',
+  title: 'Iloilo Superb Mart Order Desk',
   description: 'Staff inbox and chat monitor',
 };
 
