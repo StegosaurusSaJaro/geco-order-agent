@@ -37,6 +37,7 @@ CANCELLED = "Your order is cancelled."
 ALREADY_HANDLED = CONFIRM_REPLIES["handled"]
 RECEIPT_UNAVAILABLE = "Receipt is only available for confirmed orders."
 RESEND_FILE_REPLY = "Please send the file again"
+RESEND_ORDER_REPLY = "Please send your order again so I can build a fresh draft."
 REJECT_NOTICE_TEXT = "Sorry, we couldn't accept order {ref}. A member of the GECO team will contact you shortly."
 
 
@@ -176,6 +177,12 @@ class OrderBot:
         said = orders.fill_placeholders(reading.reply, facts).strip()
         if reading.intent == "price-list":
             return Reply(join(said, orders.price_list_text(self.db.price_list(customer.tier_id))))
+        if reading.intent == "follow-up" and not reading.edit_draft and draft and draft.get("lines"):
+            products = self.db.price_and_stock(customer.tier_id, [line["sku"] for line in draft["lines"]])
+            lines, unpriced, total = orders.price_lines(draft["lines"], products)
+            if unpriced:
+                return Reply(join(said, orders.dropped_text(unpriced), RESEND_ORDER_REPLY))
+            return Reply(join(said, orders.draft_text(lines, products, total, [])), draft["id"])
         if reading.intent != "order" and not reading.edit_draft:
             return Reply(said)
         kept, dropped = check_lines(reading.lines, self.reader.catalog_by_sku)
