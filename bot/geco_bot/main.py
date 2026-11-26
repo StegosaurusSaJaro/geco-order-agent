@@ -176,6 +176,11 @@ class OrderBot:
         said = orders.fill_placeholders(reading.reply, facts).strip()
         if reading.intent == "price-list":
             return Reply(join(said, orders.price_list_text(self.db.price_list(customer.tier_id))))
+        if reading.intent == "follow-up" and not reading.edit_draft and draft and draft.get("lines"):
+            products = self.db.price_and_stock(customer.tier_id, [line["sku"] for line in draft["lines"]])
+            lines, _unpriced, total = orders.price_lines(draft["lines"], products)
+            if lines:
+                return Reply(join(said, orders.draft_text(lines, products, total, [])), draft["id"])
         if reading.intent != "order" and not reading.edit_draft:
             return Reply(said)
         kept, dropped = check_lines(reading.lines, self.reader.catalog_by_sku)
