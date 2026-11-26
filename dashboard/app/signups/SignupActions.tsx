@@ -88,18 +88,29 @@ export function SignupActions({
     setPendingDecision('approve');
     setResult(null);
     startTransition(async () => {
-      const next = await approveSignupAction({
-        id,
-        name: name.trim(),
-        kind: selectedKind,
-        tierId: parsedTierId,
-      });
-      setResult(next);
-      if (next.outcome === 'approved' || next.outcome === 'rejected' || next.outcome === 'handled') {
-        window.dispatchEvent(new CustomEvent(SIGNUP_RESULT_EVENT, { detail: next }));
+      try {
+        const next = await approveSignupAction({
+          id,
+          name: name.trim(),
+          kind: selectedKind,
+          tierId: parsedTierId,
+        });
+        setResult(next);
+        if (next.outcome === 'approved' || next.outcome === 'rejected' || next.outcome === 'handled') {
+          window.dispatchEvent(new CustomEvent(SIGNUP_RESULT_EVENT, { detail: next }));
+        }
+        router.refresh();
+      } catch (err) {
+        setResult({
+          outcome: 'error',
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : 'Request failed. Please try again.',
+        });
+      } finally {
+        setPendingDecision(null);
       }
-      setPendingDecision(null);
-      router.refresh();
     });
   }
 
@@ -107,13 +118,24 @@ export function SignupActions({
     setPendingDecision('reject');
     setResult(null);
     startTransition(async () => {
-      const next = await rejectSignupAction(id);
-      setResult(next);
-      if (next.outcome === 'approved' || next.outcome === 'rejected' || next.outcome === 'handled') {
-        window.dispatchEvent(new CustomEvent(SIGNUP_RESULT_EVENT, { detail: next }));
+      try {
+        const next = await rejectSignupAction(id);
+        setResult(next);
+        if (next.outcome === 'approved' || next.outcome === 'rejected' || next.outcome === 'handled') {
+          window.dispatchEvent(new CustomEvent(SIGNUP_RESULT_EVENT, { detail: next }));
+        }
+        router.refresh();
+      } catch (err) {
+        setResult({
+          outcome: 'error',
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : 'Request failed. Please try again.',
+        });
+      } finally {
+        setPendingDecision(null);
       }
-      setPendingDecision(null);
-      router.refresh();
     });
   }
 

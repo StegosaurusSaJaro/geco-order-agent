@@ -14,6 +14,7 @@ from telegram import (
     ReplyKeyboardRemove,
     Update,
 )
+from telegram.error import TelegramError
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 from geco_bot import onboarding, orders
@@ -529,14 +530,16 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
     async def text_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
         user = update.effective_user
+        if msg is None or user is None or msg.text is None:
+            return
         reply = await bot.on_text(
             user.id,
             msg.chat_id,
             msg.text,
             msg.message_id,
-            first_name=user.first_name if user else None,
-            last_name=user.last_name if user else None,
-            username=user.username if user else None,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            username=user.username,
         )
         markup = (
             reply.reply_markup
@@ -547,9 +550,12 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
 
     async def contact_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
+        user = update.effective_user
+        if msg is None or user is None or msg.contact is None:
+            return
         contact = msg.contact
         reply = await bot.on_contact(
-            update.effective_user.id,
+            user.id,
             msg.chat_id,
             contact.phone_number,
             contact.user_id,
@@ -559,13 +565,18 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
 
     async def button_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        await query.answer()
+        user = update.effective_user
+        if query is None or query.message is None or user is None or not query.data:
+            return
+        with contextlib.suppress(TelegramError):
+            await query.answer()
         parts = query.data.split(":")
         action = parts[0]
         order_id = parts[1]
         token = parts[2] if len(parts) > 2 else None
-        reply = await bot.on_button(update.effective_user.id, query.message.chat_id, action, order_id, token=token)
-        await query.edit_message_reply_markup(reply_markup=None)
+        reply = await bot.on_button(user.id, query.message.chat_id, action, order_id, token=token)
+        with contextlib.suppress(TelegramError):
+            await query.edit_message_reply_markup(reply_markup=None)
         if reply.document is not None:
             if query.message.chat_id > 0:
                 await query.message.reply_document(
@@ -584,15 +595,23 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
 
     async def signup_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        await query.answer()
+        user = update.effective_user
+        if query is None or query.message is None or user is None or not query.data:
+            return
+        with contextlib.suppress(TelegramError):
+            await query.answer()
         action = query.data.split(":", 1)[1]
-        reply = await bot.on_signup_button(update.effective_user.id, query.message.chat_id, action)
-        await query.edit_message_reply_markup(reply_markup=None)
+        reply = await bot.on_signup_button(user.id, query.message.chat_id, action)
+        with contextlib.suppress(TelegramError):
+            await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text(reply.text, reply_markup=reply.reply_markup)
 
     async def file_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
-        user_id = update.effective_user.id
+        user = update.effective_user
+        if msg is None or user is None:
+            return
+        user_id = user.id
         if bot.db.customer_by_telegram_id(user_id) is None:
             reply = bot.on_unknown_file(user_id, msg.chat_id)
             await msg.reply_text(reply.text, reply_markup=reply.reply_markup)
@@ -603,11 +622,13 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
             tg_file = await doc.get_file()
             file_name = doc.file_name
             file_mime = doc.mime_type
-        else:
+        elif msg.photo:
             kind = "photo"
             tg_file = await msg.photo[-1].get_file()
             file_name = None
             file_mime = "image/jpeg"
+        else:
+            return
         file_bytes = bytes(await tg_file.download_as_bytearray())
         reply = await bot.on_file(
             user_id, msg.chat_id, kind, msg.caption, file_name, file_mime, file_bytes, msg.message_id
@@ -655,12 +676,13 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
+    not_edited = ~filters.UpdateType.EDITED
     app = Application.builder().token(token).post_init(post_init).post_shutdown(post_shutdown).build()
-    app.add_handler(MessageHandler(filters.TEXT, text_handler))
-    app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
+    app.add_handler(MessageHandler(filters.TEXT & not_edited, text_handler))
+    app.add_handler(MessageHandler(filters.CONTACT & not_edited, contact_handler))
     app.add_handler(CallbackQueryHandler(button_handler, pattern=r"^(confirm|cancel|receipt):"))
     app.add_handler(CallbackQueryHandler(signup_handler, pattern=r"^signup:(submit|restart)$"))
-    app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, file_handler))
+    app.add_handler(MessageHandler((filters.Document.ALL | filters.PHOTO) & not_edited, file_handler))
     return app
 
 

@@ -44,6 +44,27 @@ function previewText(msg: MessageRow): string {
   return normalized.length <= 80 ? normalized : `${normalized.slice(0, 77).trimEnd()}…`;
 }
 
+const FETCH_PAGE_SIZE = 500;
+
+async function fetchAllRows<T>(
+  fetchPage: (
+    from: number,
+    to: number
+  ) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const rows: T[] = [];
+  for (let offset = 0; ; offset += FETCH_PAGE_SIZE) {
+    const res = await fetchPage(offset, offset + FETCH_PAGE_SIZE - 1);
+    if (res.error) {
+      return { data: [], error: res.error };
+    }
+    const page = (res.data ?? []) as T[];
+    rows.push(...page);
+    if (page.length < FETCH_PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
+}
+
 async function ConversationsContent({
   supabase,
   requestedPage,
@@ -52,18 +73,36 @@ async function ConversationsContent({
   requestedPage: number;
 }) {
   const [conversationsRes, messagesRes, ordersRes] = await Promise.all([
-    supabase.from('conversations').select('id, created_at, customers(name, tiers(name))'),
-    supabase
-      .from('messages')
-      .select('id, conversation_id, body, kind, file_name, created_at')
-      .order('created_at', { ascending: false }),
-    supabase.from('orders').select('id, conversation_id'),
+    fetchAllRows<ConversationRow>((from, to) =>
+      supabase
+        .from('conversations')
+        .select('id, created_at, customers(name, tiers(name))')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to)
+    ),
+    fetchAllRows<MessageRow>((from, to) =>
+      supabase
+        .from('messages')
+        .select('id, conversation_id, body, kind, file_name, created_at')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to)
+    ),
+    fetchAllRows<OrderRow>((from, to) =>
+      supabase
+        .from('orders')
+        .select('id, conversation_id')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to)
+    ),
   ]);
 
   const queryError = conversationsRes.error || messagesRes.error || ordersRes.error;
-  const conversations = (conversationsRes.data ?? []) as ConversationRow[];
-  const messages = (messagesRes.data ?? []) as MessageRow[];
-  const orders = (ordersRes.data ?? []) as OrderRow[];
+  const conversations = conversationsRes.data;
+  const messages = messagesRes.data;
+  const orders = ordersRes.data;
 
   const lastMessageByConv = new Map<string, MessageRow>();
   const messageCountByConv = new Map<string, number>();

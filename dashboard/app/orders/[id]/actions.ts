@@ -27,18 +27,14 @@ const OUTCOME_MESSAGES: Record<'approved' | 'rejected' | 'short' | 'handled', st
   handled: 'Already handled',
 };
 
-function decisionMessage(
-  decision: 'approve' | 'reject',
+function approvalMessage(
   orderId: string,
   total: number | string,
   currency: string
 ): string {
   const ref = `#${shortId(orderId)}`;
   const amount = formatCurrency(total, currency);
-  if (decision === 'approve') {
-    return `Order ${ref} (${amount}) has been approved and confirmed by our team.`;
-  }
-  return `Order ${ref} (${amount}) was not approved and has been cancelled. Please message us if you would like to adjust it.`;
+  return `Order ${ref} (${amount}) has been approved and confirmed by our team.`;
 }
 
 async function reviewOrder(
@@ -66,7 +62,7 @@ async function reviewOrder(
 
   let notice: string | null = null;
 
-  if (outcome === 'approved' || outcome === 'rejected') {
+  if (outcome === 'approved') {
     const { data: orderData } = await supabase
       .from('orders')
       .select('conversation_id, total, currency, conversations(telegram_chat_id)')
@@ -78,7 +74,7 @@ async function reviewOrder(
     const chatId = conv ? Number(conv.telegram_chat_id) : NaN;
 
     if (orderRow && Number.isFinite(chatId) && chatId >= 0) {
-      const body = decisionMessage(decision, orderId, orderRow.total, orderRow.currency);
+      const body = approvalMessage(orderId, orderRow.total, orderRow.currency);
       const sent = await sendTelegramMessage(chatId, body);
       if (sent.ok) {
         const { data: savedMsg } = await supabase
