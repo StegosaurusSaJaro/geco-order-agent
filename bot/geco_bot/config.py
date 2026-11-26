@@ -20,6 +20,7 @@ class Settings:
     poll_seconds: float
     FLOOD_MAX_MESSAGES: int = 8
     FLOOD_WINDOW_SECONDS: int = 60
+    REPEAT_MAX_MESSAGES: int = 3
 
 
 def load_settings() -> Settings:
@@ -35,4 +36,5 @@ def load_settings() -> Settings:
         poll_seconds=float(os.environ.get("POLL_SECONDS") or "5"),
         FLOOD_MAX_MESSAGES=int(os.environ.get("FLOOD_MAX_MESSAGES") or "8"),
         FLOOD_WINDOW_SECONDS=int(os.environ.get("FLOOD_WINDOW_SECONDS") or "60"),
+        REPEAT_MAX_MESSAGES=int(os.environ.get("REPEAT_MAX_MESSAGES") or "3"),
     )
