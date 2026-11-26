@@ -30,7 +30,7 @@ export function LoginForm() {
           <Package className="size-[15px]" />
         </div>
         <span className="font-semibold text-[15px] tracking-tight">
-          GECO Asia · Order Desk
+          Iloilo Superb Mart · Order Desk
         </span>
       </div>
 
