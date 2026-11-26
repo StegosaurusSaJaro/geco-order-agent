@@ -19,13 +19,24 @@ export function FlagActions({ id }: { id: number }) {
     setPendingDecision(decision);
     setResult(null);
     startTransition(async () => {
-      const next =
-        decision === 'release'
-          ? await releaseFlagAction(id)
-          : await dismissFlagAction(id);
-      setResult(next);
-      setPendingDecision(null);
-      router.refresh();
+      try {
+        const next =
+          decision === 'release'
+            ? await releaseFlagAction(id)
+            : await dismissFlagAction(id);
+        setResult(next);
+        router.refresh();
+      } catch (err) {
+        setResult({
+          outcome: 'error',
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : 'Request failed. Please try again.',
+        });
+      } finally {
+        setPendingDecision(null);
+      }
     });
   }
 

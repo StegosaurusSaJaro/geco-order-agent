@@ -621,15 +621,26 @@ export function buildChartData(
     bySku.set(line.sku, entry);
   }
 
+  const MAX_CHART_DAYS = 366;
   const days = Array.from(byDay.keys()).sort();
   const firstDay = filters.from || days[0];
   const lastDay = filters.to || days[days.length - 1];
   const ordersOverTime: OrdersOverTimePoint[] = [];
-  if (firstDay && lastDay) {
-    for (let date = firstDay; date <= lastDay; date = nextDay(date)) {
-      const stats = byDay.get(date) ?? { count: 0, sales: 0 };
-      ordersOverTime.push({ date, label: shortDateLabel(date), ...stats });
-      if (date === lastDay) break;
+  if (firstDay && lastDay && firstDay <= lastDay) {
+    const spanMs =
+      Date.parse(`${lastDay}T00:00:00.000Z`) - Date.parse(`${firstDay}T00:00:00.000Z`);
+    const spanDays = Number.isFinite(spanMs) ? Math.floor(spanMs / 86_400_000) + 1 : Infinity;
+    if (spanDays <= MAX_CHART_DAYS) {
+      for (let date = firstDay; date <= lastDay; date = nextDay(date)) {
+        const stats = byDay.get(date) ?? { count: 0, sales: 0 };
+        ordersOverTime.push({ date, label: shortDateLabel(date), ...stats });
+        if (date === lastDay) break;
+      }
+    } else {
+      for (const date of days) {
+        const stats = byDay.get(date)!;
+        ordersOverTime.push({ date, label: shortDateLabel(date), ...stats });
+      }
     }
   }
 

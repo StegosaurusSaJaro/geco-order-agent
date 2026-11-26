@@ -33,13 +33,24 @@ export function OrderReviewActions({ orderId, status, reviewReasons }: Props) {
   function handleDecision(decision: 'approve' | 'reject') {
     setPendingDecision(decision);
     startTransition(async () => {
-      const next =
-        decision === 'approve'
-          ? await approveOrderAction(orderId)
-          : await rejectOrderAction(orderId);
-      setResult(next);
-      setPendingDecision(null);
-      router.refresh();
+      try {
+        const next =
+          decision === 'approve'
+            ? await approveOrderAction(orderId)
+            : await rejectOrderAction(orderId);
+        setResult(next);
+        router.refresh();
+      } catch (err) {
+        setResult({
+          outcome: 'error',
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : 'Request failed. Please try again.',
+        });
+      } finally {
+        setPendingDecision(null);
+      }
     });
   }
 

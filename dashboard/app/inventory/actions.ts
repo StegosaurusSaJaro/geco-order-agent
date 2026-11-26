@@ -69,6 +69,7 @@ export async function updateStockAction(
   }
 
   revalidatePath('/inventory');
+  revalidatePath('/orders');
   const savedQty = Number(data[0].stock_qty);
   return {
     status: 'saved',

@@ -1,15 +1,14 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
+import { LOW_STOCK_PACKS } from '@/lib/orders';
 import { cn } from '@/lib/utils';
 import { updateStockAction, type StockUpdateState } from './actions';
-
-const LOW_STOCK_THRESHOLD = 20;
 
 type StockRowProps = {
   sku: string;
@@ -39,12 +38,29 @@ export function StockRow({
     updateStockAction,
     initialState
   );
+  const [loadedQty, setLoadedQty] = useState(initialQty);
   const [inputValue, setInputValue] = useState(String(initialQty));
+  const prevInitialQtyRef = useRef(initialQty);
+
+  useEffect(() => {
+    if (state.status === 'saved') {
+      setLoadedQty(state.stockQty);
+      prevInitialQtyRef.current = state.stockQty;
+    }
+  }, [state]);
+
+  useEffect(() => {
+    if (prevInitialQtyRef.current !== initialQty) {
+      prevInitialQtyRef.current = initialQty;
+      setLoadedQty(initialQty);
+      setInputValue(String(initialQty));
+    }
+  }, [initialQty]);
 
   const stockBadge =
-    state.stockQty <= 0 ? (
+    loadedQty <= 0 ? (
       <Badge variant="destructive">Out</Badge>
-    ) : state.stockQty < LOW_STOCK_THRESHOLD ? (
+    ) : loadedQty <= LOW_STOCK_PACKS ? (
       <Badge
         variant="outline"
         className="border-amber-300 bg-amber-50 text-amber-800"
@@ -82,7 +98,7 @@ export function StockRow({
             noValidate
           >
             <input type="hidden" name="sku" value={sku} />
-            <input type="hidden" name="loadedQty" value={state.stockQty} />
+            <input type="hidden" name="loadedQty" value={loadedQty} />
             <Input
               type="text"
               inputMode="numeric"
