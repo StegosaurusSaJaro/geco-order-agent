@@ -22,7 +22,7 @@ import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-const CONVERSATIONS_PAGE_SIZE = 20;
+const CONVERSATIONS_PAGE_SIZE = 10;
 
 type CustomerRow = { name: string; tiers: { name: string } | { name: string }[] | null };
 type ConversationRow = { id: string; created_at: string; customers: CustomerRow | CustomerRow[] | null };

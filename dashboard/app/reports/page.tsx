@@ -32,7 +32,7 @@ import { getSupabaseConfig, requireUser } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-const REPORTS_PAGE_SIZE = 20;
+const REPORTS_PAGE_SIZE = 10;
 
 type ReportsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
