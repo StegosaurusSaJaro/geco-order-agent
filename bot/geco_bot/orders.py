@@ -1,3 +1,4 @@
+import hashlib
 import re
 from decimal import Decimal
 
@@ -5,6 +6,7 @@ PLACEHOLDER = re.compile(r"\$?\{(price|stock):([A-Z0-9-]+)\}")
 CENT = Decimal("0.01")
 DRAFT_HEADING = "Draft order"
 DRAFT_DIVIDER = "──────────"
+REMOVED_PREFIX = "Removed from your draft: "
 CATEGORY_LABELS = {
     "dairy": "DAIRY",
     "coffee_tea": "COFFEE & TEA",
@@ -78,6 +80,31 @@ def draft_text(
 
 def dropped_text(dropped: list[str]) -> str:
     return "I couldn't match: " + ", ".join(dropped) + ". Please check the product names and try again."
+
+
+def draft_token(lines: list[dict]) -> str:
+    canonical = sorted(
+        (line["sku"], amount(line["quantity"]), line["unit_code"])
+        for line in lines
+    )
+    payload = "\n".join(f"{sku}|{qty}|{unit}" for sku, qty, unit in canonical)
+    return hashlib.sha256(payload.encode()).hexdigest()[:8]
+
+
+def removed_note(old_lines: list[dict], new_lines: list[dict], catalog_by_sku: dict[str, dict]) -> str:
+    kept_skus = {line["sku"] for line in new_lines}
+    seen: set[str] = set()
+    names: list[str] = []
+    for line in old_lines:
+        sku = line["sku"]
+        if sku in kept_skus or sku in seen:
+            continue
+        seen.add(sku)
+        product = catalog_by_sku.get(sku)
+        names.append(product["name"] if product else sku)
+    if not names:
+        return ""
+    return f"{REMOVED_PREFIX}{', '.join(names)}"
 
 
 def price_list_text(rows: list[dict]) -> str:

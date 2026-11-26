@@ -125,7 +125,7 @@ def test_receipt_button_clears_markup_and_sends_pdf_without_markup(bot, reader, 
         lines=[{"sku": OAT, "quantity": 3, "unit": "CTN12", "raw_text": "3 ctn oat milk"}],
     )
     draft = run(bot.on_text(CAFE, CHAT, "3 ctn oat milk"))
-    confirm_reply = run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id))
+    confirm_reply = run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id, draft.draft_token))
     assert confirm_reply.show_receipt_button is True
 
     app = main.build_app("123:test-token", bot)

@@ -52,7 +52,7 @@ def test_over_three_times_usual_is_held(bot, db, reader, monkeypatch):
         lines=[{"sku": OAT, "quantity": 16, "unit": "CTN12", "raw_text": "16 ctn oat milk"}],
     )
     draft = run(bot.on_text(TEST_USER, CHAT, "16 ctn oat milk"))
-    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
+    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"
@@ -73,7 +73,7 @@ def test_exactly_three_times_confirms(bot, db, reader, monkeypatch):
         lines=[{"sku": OAT, "quantity": 15, "unit": "CTN12", "raw_text": "15 ctn oat milk"}],
     )
     draft = run(bot.on_text(TEST_USER, CHAT, "15 ctn oat milk"))
-    confirmed = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
+    confirmed = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert confirmed.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $384.75\nThank you!"
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
@@ -91,7 +91,7 @@ def test_one_past_order_not_checked(bot, db, reader, monkeypatch):
         lines=[{"sku": OAT, "quantity": 10, "unit": "CTN12", "raw_text": "10 ctn oat milk"}],
     )
     draft = run(bot.on_text(TEST_USER, CHAT, "10 ctn oat milk"))
-    confirmed = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
+    confirmed = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert confirmed.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $256.50\nThank you!"
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
@@ -110,7 +110,7 @@ def test_current_order_not_counted_as_history(bot, db, reader, monkeypatch):
         lines=[{"sku": OAT, "quantity": 20, "unit": "CTN12", "raw_text": "20 ctn oat milk"}],
     )
     draft = run(bot.on_text(TEST_USER, CHAT, "20 ctn oat milk"))
-    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
+    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"
@@ -130,7 +130,7 @@ def test_over_threshold_and_unusual_quantity_carries_both_reasons(bot, db, reade
         lines=[{"sku": OAT, "quantity": 94, "unit": "CTN12", "raw_text": "94 ctn oat milk"}],
     )
     draft = run(bot.on_text(TEST_USER, CHAT, "94 ctn oat milk"))
-    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
+    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"
@@ -155,7 +155,7 @@ def test_unusual_quantity_and_short_stock_carries_both_reasons(bot, db, reader, 
         ],
     )
     draft = run(bot.on_text(TEST_USER, CHAT, "10 ctn oat milk + 8 trays eggs"))
-    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
+    held = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"

@@ -50,7 +50,7 @@ def create_confirmed_order(bot, db, reader, monkeypatch, user_id=CAFE, chat_id=P
         lines=[{"sku": OAT, "quantity": 3, "unit": "CTN12", "raw_text": "3 ctn oat milk"}],
     )
     draft = run(bot.on_text(user_id, chat_id, "3 ctn oat milk"))
-    reply = run(bot.on_button(user_id, chat_id, "confirm", draft.order_id))
+    reply = run(bot.on_button(user_id, chat_id, "confirm", draft.order_id, draft.draft_token))
     assert reply.text == (
         f"Order {po_number or draft.order_id[:8]} confirmed\n"
         f"1 item · Total ${'85.50' if user_id == CAFE else '76.95'}\nThank you!"

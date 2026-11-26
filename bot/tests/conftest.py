@@ -26,6 +26,7 @@ SQL_FILES = [
     "supabase/migrations/20261127000100_flagged_messages.sql",
     "supabase/migrations/20261127000200_signups.sql",
     "supabase/migrations/20261127000300_reject_notice.sql",
+    "supabase/migrations/20261127000400_one_open_draft.sql",
     "supabase/seed.sql",
     "supabase/stock.sql",
 ]

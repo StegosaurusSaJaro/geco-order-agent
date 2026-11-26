@@ -92,7 +92,7 @@ def test_over_threshold_order_held_on_confirm_with_no_stock_deducted(bot, db, re
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "draft"
     assert scalar(db, "select total from orders where id = %s", draft.order_id) == Decimal("2411.10")
 
-    held = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id))
+    held = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id, draft.draft_token))
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"
     assert scalar(db, "select review_reasons from orders where id = %s", draft.order_id) == ["total"]
@@ -112,7 +112,7 @@ def test_under_threshold_order_confirms(bot, db, reader, monkeypatch):
     draft = run(bot.on_text(HOTEL, CHAT, "77 ctn oat milk"))
     assert scalar(db, "select total from orders where id = %s", draft.order_id) == Decimal("1975.05")
 
-    confirmed = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id))
+    confirmed = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id, draft.draft_token))
     assert confirmed.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $1,975.05\nThank you!"
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
     assert scalar(db, "select stock_qty from products where sku = %s", OAT) == before - 77
@@ -142,7 +142,7 @@ def test_over_threshold_and_short_stock_carries_both_reasons(bot, db, reader, mo
         ],
     )
     draft = run(bot.on_text(HOTEL, CHAT, "94 ctn oat milk + 8 trays eggs"))
-    held = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id))
+    held = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert held.text == main.CONFIRM_REPLIES["held"]
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "needs_review"
@@ -161,8 +161,8 @@ def test_double_confirm_on_held_order_returns_already_handled(bot, db, reader, m
         lines=[{"sku": OAT, "quantity": 94, "unit": "CTN12", "raw_text": "94 ctn oat milk"}],
     )
     draft = run(bot.on_text(HOTEL, CHAT, "94 ctn oat milk"))
-    first = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id))
-    second = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id))
+    first = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id, draft.draft_token))
+    second = run(bot.on_button(HOTEL, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert first.text == main.CONFIRM_REPLIES["held"]
     assert second.text == main.ALREADY_HANDLED

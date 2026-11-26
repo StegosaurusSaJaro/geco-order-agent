@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
+from psycopg import errors
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+
+from geco_bot import orders
+from geco_bot.receipt import order_ref
 
 RECENT_MESSAGE_COUNT = 6
 LINE_VERSION = 1
@@ -10,11 +14,34 @@ _EXCLUDED_FLAGGED_SQL = (
     " and not exists (select 1 from screening_log s"
     " where s.message_id = messages.id and s.status in ('held', 'dismissed'))"
 )
+_HISTORY_SELECT_SQL = (
+    "select messages.author, messages.body, closed.order_id, closed.po_number, closed.status"
+    " from messages"
+    " left join lateral ("
+    "     select o.id::text as order_id, o.po_number, o.status::text as status"
+    "     from order_messages om"
+    "     join orders o on o.id = om.order_id"
+    "     where om.message_id = messages.id and messages.author = 'bot' and o.status <> 'draft'"
+    "     order by o.updated_at desc"
+    "     limit 1"
+    " ) closed on true"
+)
 _SIGNUP_COLUMNS = (
     "id, telegram_user_id, telegram_chat_id, telegram_name, telegram_username,"
     " status, step, business_name, contact_name, phone, delivery_address"
 )
 _SIGNUP_ANSWER_FIELDS = frozenset({"business_name", "contact_name", "phone", "delivery_address"})
+
+
+def _format_history(rows: list[dict]) -> list[dict]:
+    result = []
+    for row in reversed(rows):
+        body = row["body"]
+        if row["status"] is not None:
+            ref = order_ref({"id": row["order_id"], "po_number": row["po_number"]})
+            body = f"{body} [order {ref} is closed: {row['status']}]"
+        result.append({"author": row["author"], "body": body})
+    return result
 
 
 @dataclass(frozen=True)
@@ -81,23 +108,24 @@ class Database:
     def recent_messages(self, conversation_id: str) -> list[dict]:
         with self.pool.connection() as conn:
             rows = conn.execute(
-                "select author, body from messages where conversation_id = %s and body is not null"
+                _HISTORY_SELECT_SQL
+                + " where messages.conversation_id = %s and messages.body is not null"
                 + _EXCLUDED_FLAGGED_SQL
-                + " order by created_at desc limit %s",
+                + " order by messages.created_at desc limit %s",
                 (conversation_id, RECENT_MESSAGE_COUNT),
             ).fetchall()
-        return list(reversed(rows))
+        return _format_history(rows)
 
     def history_before(self, conversation_id: str, before_ts, limit: int = RECENT_MESSAGE_COUNT) -> list[dict]:
         with self.pool.connection() as conn:
             rows = conn.execute(
-                "select author, body from messages"
-                " where conversation_id = %s and body is not null and created_at < %s"
+                _HISTORY_SELECT_SQL
+                + " where messages.conversation_id = %s and messages.body is not null and messages.created_at < %s"
                 + _EXCLUDED_FLAGGED_SQL
-                + " order by created_at desc limit %s",
+                + " order by messages.created_at desc limit %s",
                 (conversation_id, before_ts, limit),
             ).fetchall()
-        return list(reversed(rows))
+        return _format_history(rows)
 
     def recent_inbound_count(self, conversation_id: str, window_seconds: int) -> int:
         with self.pool.connection() as conn:
@@ -214,25 +242,31 @@ class Database:
         source: str = "text",
         po_number: str | None = None,
     ) -> str:
-        with self.pool.connection() as conn, conn.transaction():
-            conn.execute(
-                "update orders set status = 'cancelled', updated_at = now()"
-                " where customer_id = %s and conversation_id = %s and status = 'draft'",
-                (customer_id, conversation_id),
-            )
-            order_id = conn.execute(
-                "insert into orders (customer_id, conversation_id, status, source, po_number, total)"
-                " values (%s, %s, 'draft', %s, %s, %s) returning id::text",
-                (customer_id, conversation_id, source, po_number, total),
-            ).fetchone()["id"]
-            for line_no, line in enumerate(lines, start=1):
-                conn.execute(
-                    "insert into order_lines (order_id, version, line_no, sku, quantity, unit_code, unit_price, line_total)"
-                    " values (%s, %s, %s, %s, %s, %s, %s, %s)",
-                    (order_id, LINE_VERSION, line_no, line["sku"], line["quantity"], line["unit_code"],
-                     line["unit_price"], line["line_total"]),
-                )
-        return order_id
+        for attempt in range(2):
+            try:
+                with self.pool.connection() as conn, conn.transaction():
+                    conn.execute(
+                        "update orders set status = 'cancelled', updated_at = now()"
+                        " where customer_id = %s and conversation_id = %s and status = 'draft'",
+                        (customer_id, conversation_id),
+                    )
+                    order_id = conn.execute(
+                        "insert into orders (customer_id, conversation_id, status, source, po_number, total)"
+                        " values (%s, %s, 'draft', %s, %s, %s) returning id::text",
+                        (customer_id, conversation_id, source, po_number, total),
+                    ).fetchone()["id"]
+                    for line_no, line in enumerate(lines, start=1):
+                        conn.execute(
+                            "insert into order_lines (order_id, version, line_no, sku, quantity, unit_code, unit_price, line_total)"
+                            " values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                            (order_id, LINE_VERSION, line_no, line["sku"], line["quantity"], line["unit_code"],
+                             line["unit_price"], line["line_total"]),
+                        )
+                return order_id
+            except errors.UniqueViolation as exc:
+                if attempt == 0 and exc.diag.constraint_name == "orders_one_open_draft":
+                    continue
+                raise
 
     def open_draft(self, customer_id: str, conversation_id: str) -> dict | None:
         with self.pool.connection() as conn:
@@ -295,17 +329,29 @@ class Database:
         review_threshold: Decimal = Decimal("2000"),
         quantity_factor: Decimal = Decimal("3"),
         quantity_min_history: int = 2,
+        expected_token: str | None = None,
     ) -> str:
         with self.pool.connection() as conn, conn.transaction():
-            updated = conn.execute(
-                "update orders set status = 'confirmed', confirmed_at = now(), updated_at = now()"
-                " where id = %s and customer_id = %s and status = 'draft' returning id, total",
+            row = conn.execute(
+                "select id, status::text, total from orders where id = %s and customer_id = %s for update",
                 (order_id, customer_id),
             ).fetchone()
-            if updated is None:
+            if row is None or row["status"] != "draft":
                 return "handled"
+            if expected_token is not None:
+                lines = conn.execute(
+                    "select sku, quantity, unit_code from order_lines"
+                    " where order_id = %s and version = %s order by line_no",
+                    (order_id, LINE_VERSION),
+                ).fetchall()
+                if orders.draft_token(lines) != expected_token:
+                    return "stale"
+            conn.execute(
+                "update orders set status = 'confirmed', confirmed_at = now(), updated_at = now() where id = %s",
+                (order_id,),
+            )
             reasons = []
-            if updated["total"] > review_threshold:
+            if row["total"] > review_threshold:
                 reasons.append("total")
             unusual = conn.execute(
                 "with current_lines as ("

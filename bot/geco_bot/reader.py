@@ -53,6 +53,7 @@ Rules for order lines:
 - If a current open draft order is shown and the customer asks a question, small talk or price list without changing the draft, set edit_draft to false and return no lines.
 - Otherwise set edit_draft to false.
 - If the intent is not order and edit_draft is false, return no lines.
+- Items from closed orders in the history are never copied into a new order unless the customer names them again.
 
 Rules for reply:
 - Write a short, friendly reply in the customer's language.
@@ -113,7 +114,14 @@ def check_lines(lines, catalog_by_sku: dict[str, dict]):
         if product is None or line.unit != product["unit_code"] or line.quantity <= 0:
             dropped.append(line.raw_text or line.sku)
             continue
-        kept.append({"sku": line.sku, "quantity": Decimal(str(line.quantity)), "unit_code": line.unit})
+        qty = Decimal(str(line.quantity))
+        if not qty.is_finite():
+            dropped.append(line.raw_text or line.sku)
+            continue
+        if qty != qty.to_integral_value():
+            dropped.append(f"{line.raw_text or line.sku} (whole units only)")
+            continue
+        kept.append({"sku": line.sku, "quantity": qty.to_integral_value(), "unit_code": line.unit})
     return kept, dropped
 
 

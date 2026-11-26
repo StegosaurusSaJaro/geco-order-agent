@@ -184,7 +184,7 @@ def test_release_processes_once(bot, db, reader, monkeypatch):
     assert flagged_text not in bodies
     assert FLAGGED_REPLY not in bodies
     assert scalar(db, "select status from screening_log") == "processed"
-    order_id = tg_bot.sent[0]["reply_markup"].inline_keyboard[0][0].callback_data.split(":", 1)[1]
+    order_id = tg_bot.sent[0]["reply_markup"].inline_keyboard[0][0].callback_data.split(":")[1]
     assert scalar(
         db,
         "select count(*) from order_messages where order_id = %s and message_id = %s",

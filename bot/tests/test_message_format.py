@@ -116,7 +116,7 @@ def test_confirmation_uses_order_reference_and_saved_total(bot, db, reader, monk
     draft = create_draft(bot, reader, monkeypatch, lines, po_number=po_number)
     saved_total = scalar(db, "update orders set total = total + 0.01 where id = %s returning total", draft.order_id)
 
-    reply = asyncio.run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id))
+    reply = asyncio.run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     reference = po_number or draft.order_id[:8]
     expected = f"Order {reference} confirmed\n{item_count} · Total ${saved_total:,.2f}\nThank you!"
@@ -135,7 +135,7 @@ def test_held_confirmation_keeps_staff_reply(bot, db, reader, monkeypatch):
         conn.execute("update products set stock_qty = 2 where sku = %s", (MATCHA["sku"],))
     draft = create_draft(bot, reader, monkeypatch, [MATCHA])
 
-    reply = asyncio.run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id))
+    reply = asyncio.run(bot.on_button(CAFE, CHAT, "confirm", draft.order_id, draft.draft_token))
 
     assert reply.text == "Our staff will check this order and get back to you."
     assert not reply.show_receipt_button

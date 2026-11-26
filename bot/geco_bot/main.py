@@ -40,6 +40,7 @@ RESEND_ORDER_REPLY = "Please send your order again so I can build a fresh draft.
 REJECT_NOTICE_TEXT = "Sorry, we couldn't accept order {ref}. A member of the GECO team will contact you shortly."
 OPEN_DRAFT_REMINDER = "You still have an open draft"
 DRAFT_REMINDER_INTENTS = ("question", "chit-chat")
+STALE_DRAFT_REPLY = "This draft has changed. Here is the latest one:"
 
 
 @dataclass
@@ -50,6 +51,7 @@ class Reply:
     document: bytes | None = None
     file_name: str | None = None
     reply_markup: object | None = None
+    draft_token: str | None = None
 
 
 class OrderBot:
@@ -166,7 +168,7 @@ class OrderBot:
                         history,
                         draft,
                     )
-                    markup = buttons(reply.order_id) if reply.order_id else None
+                    markup = buttons(reply.order_id, reply.draft_token) if reply.order_id and reply.draft_token else None
                     text = reply.text
                 else:
                     text = RESEND_FILE_REPLY
@@ -181,12 +183,14 @@ class OrderBot:
                 log.exception("Failed to process released flag %s", flag["id"])
         return processed
 
-    def _render_draft(self, customer, draft: dict, heading: str = orders.DRAFT_HEADING) -> tuple[str, str | None]:
+    def _render_draft(
+        self, customer, draft: dict, heading: str = orders.DRAFT_HEADING
+    ) -> tuple[str, str | None, str | None]:
         products = self.db.price_and_stock(customer.tier_id, [line["sku"] for line in draft["lines"]])
         lines, unpriced, total = orders.price_lines(draft["lines"], products)
         if unpriced:
-            return join(orders.dropped_text(unpriced), RESEND_ORDER_REPLY), None
-        return orders.draft_text(lines, products, total, [], heading=heading), draft["id"]
+            return join(orders.dropped_text(unpriced), RESEND_ORDER_REPLY), None, None
+        return orders.draft_text(lines, products, total, [], heading=heading), draft["id"], orders.draft_token(lines)
 
     def compose(self, customer, conversation_id, reading, source: str = "text", draft: dict | None = None) -> Reply:
         if reading is None:
@@ -196,13 +200,13 @@ class OrderBot:
         if reading.intent == "price-list":
             return Reply(join(said, orders.price_list_text(self.db.price_list(customer.tier_id))))
         if reading.intent == "follow-up" and not reading.edit_draft and draft and draft.get("lines"):
-            body, order_id = self._render_draft(customer, draft)
-            return Reply(join(said, body), order_id)
+            body, order_id, token = self._render_draft(customer, draft)
+            return Reply(join(said, body), order_id, draft_token=token)
         if reading.intent in DRAFT_REMINDER_INTENTS and not reading.edit_draft and draft and draft.get("lines"):
-            body, order_id = self._render_draft(customer, draft, heading=OPEN_DRAFT_REMINDER)
+            body, order_id, token = self._render_draft(customer, draft, heading=OPEN_DRAFT_REMINDER)
             if order_id is None:
                 body = join(f"{OPEN_DRAFT_REMINDER}:", body)
-            return Reply(join(said, body), order_id)
+            return Reply(join(said, body), order_id, draft_token=token)
         if reading.intent != "order" and not reading.edit_draft:
             return Reply(said)
         kept, dropped = check_lines(reading.lines, self.reader.catalog_by_sku)
@@ -219,7 +223,16 @@ class OrderBot:
             order_id = self.db.create_draft(
                 customer.id, conversation_id, lines, total, source=source, po_number=reading.po_number
             )
-        return Reply(join(said, orders.draft_text(lines, products, total, dropped)), order_id)
+        removed = (
+            orders.removed_note(draft["lines"], lines, self.reader.catalog_by_sku)
+            if draft and draft.get("lines")
+            else ""
+        )
+        return Reply(
+            join(said, removed, orders.draft_text(lines, products, total, dropped)),
+            order_id,
+            draft_token=orders.draft_token(lines),
+        )
 
     async def on_contact(
         self,
@@ -260,7 +273,9 @@ class OrderBot:
             return Reply(onboarding.GROUP_SIGNUP_REPLY)
         return Reply(onboarding.UNKNOWN_FILE_REPLY)
 
-    async def on_button(self, user_id: int, chat_id: int, action: str, order_id: str) -> Reply:
+    async def on_button(
+        self, user_id: int, chat_id: int, action: str, order_id: str, token: str | None = None
+    ) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
         if customer is None:
             return Reply(UNKNOWN_SENDER)
@@ -276,7 +291,19 @@ class OrderBot:
                 self.review_threshold,
                 self.quantity_factor,
                 self.quantity_min_history,
+                expected_token=token or "",
             )
+            if outcome == "stale":
+                current_draft = self.db.open_draft(customer.id, conversation_id)
+                if current_draft and current_draft.get("lines"):
+                    body, fresh_order_id, fresh_token = self._render_draft(customer, current_draft)
+                    text = join(STALE_DRAFT_REPLY, body)
+                else:
+                    fresh_order_id, fresh_token = None, None
+                    text = ALREADY_HANDLED
+                reply_id = self.db.save_message(conversation_id, "out", "bot", "text", text)
+                self.db.link_messages(order_id, [pressed_id, reply_id])
+                return Reply(text, fresh_order_id, draft_token=fresh_token)
             if outcome == "confirmed":
                 order = self.db.receipt_data(order_id)
                 if order is None:
@@ -376,9 +403,9 @@ def join(*parts: str) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-def buttons(order_id: str) -> InlineKeyboardMarkup:
+def buttons(order_id: str, draft_token: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("Confirm", callback_data=f"confirm:{order_id}"),
+        InlineKeyboardButton("Confirm", callback_data=f"confirm:{order_id}:{draft_token}"),
         InlineKeyboardButton("Cancel", callback_data=f"cancel:{order_id}"),
     ]])
 
@@ -511,7 +538,11 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
             last_name=user.last_name if user else None,
             username=user.username if user else None,
         )
-        markup = reply.reply_markup if reply.reply_markup is not None else (buttons(reply.order_id) if reply.order_id else None)
+        markup = (
+            reply.reply_markup
+            if reply.reply_markup is not None
+            else (buttons(reply.order_id, reply.draft_token) if reply.order_id and reply.draft_token else None)
+        )
         await msg.reply_text(reply.text, reply_markup=markup)
 
     async def contact_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
@@ -529,8 +560,11 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
     async def button_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-        action, order_id = query.data.split(":", 1)
-        reply = await bot.on_button(update.effective_user.id, query.message.chat_id, action, order_id)
+        parts = query.data.split(":")
+        action = parts[0]
+        order_id = parts[1]
+        token = parts[2] if len(parts) > 2 else None
+        reply = await bot.on_button(update.effective_user.id, query.message.chat_id, action, order_id, token=token)
         await query.edit_message_reply_markup(reply_markup=None)
         if reply.document is not None:
             if query.message.chat_id > 0:
@@ -541,7 +575,11 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
         else:
             await query.message.reply_text(
                 reply.text,
-                reply_markup=receipt_button(order_id) if reply.show_receipt_button else None,
+                reply_markup=(
+                    receipt_button(order_id)
+                    if reply.show_receipt_button
+                    else (buttons(reply.order_id, reply.draft_token) if reply.order_id and reply.draft_token else None)
+                ),
             )
 
     async def signup_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
@@ -574,7 +612,10 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
         reply = await bot.on_file(
             user_id, msg.chat_id, kind, msg.caption, file_name, file_mime, file_bytes, msg.message_id
         )
-        await msg.reply_text(reply.text, reply_markup=buttons(reply.order_id) if reply.order_id else None)
+        await msg.reply_text(
+            reply.text,
+            reply_markup=buttons(reply.order_id, reply.draft_token) if reply.order_id and reply.draft_token else None,
+        )
 
     async def poll_loop(application: Application):
         while True:
