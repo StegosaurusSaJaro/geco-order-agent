@@ -50,6 +50,18 @@ def test_repeat_case_and_whitespace_normalized(bot, db, reader, monkeypatch):
     assert scalar(db, "select reason from screening_log") == "repeated message x3"
 
 
+def test_repeat_newline_whitespace_normalized(bot, db, reader, monkeypatch):
+    answer(reader, monkeypatch, intent="chit-chat", reply="Okay.")
+    assert run(bot.on_text(CAFE, CHAT, "Pls")).text == "Okay."
+    assert run(bot.on_text(CAFE, CHAT, "Pls\n")).text == "Okay."
+
+    third = run(bot.on_text(CAFE, CHAT, " PLS \n"))
+    assert third.text == FLAGGED_REPLY
+    assert scalar(db, "select decision from screening_log") == "spam"
+    assert scalar(db, "select status from screening_log") == "held"
+    assert scalar(db, "select reason from screening_log") == "repeated message x3"
+
+
 def test_buttons_excluded_from_repeat_count(bot, db, reader, monkeypatch):
     customer = db.customer_by_telegram_id(CAFE)
     conv_id = db.conversation_id(customer.id, CHAT)
