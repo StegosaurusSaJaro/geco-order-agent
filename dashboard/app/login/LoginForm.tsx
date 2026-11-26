@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { AlertCircle, Package } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Package } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,14 +25,14 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-[380px] flex flex-col gap-5">
-      <div className="flex items-center justify-center gap-2.5">
+      <a href="/" className="flex items-center justify-center gap-2.5">
         <div className="size-7 rounded-md bg-[var(--brand-crimson)] text-white grid place-items-center shrink-0">
           <Package className="size-[15px]" />
         </div>
         <span className="font-semibold text-[15px] tracking-tight">
           Iloilo Superb Mart · Order Desk
         </span>
-      </div>
+      </a>
 
       <Card className="w-full max-w-[380px]">
         <CardHeader>
@@ -79,6 +79,14 @@ export function LoginForm() {
           </form>
         </CardContent>
       </Card>
+
+      <a
+        href="/"
+        className="inline-flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back to website
+      </a>
     </div>
   );
 }
