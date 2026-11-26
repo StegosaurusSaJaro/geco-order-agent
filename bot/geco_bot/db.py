@@ -10,6 +10,11 @@ _EXCLUDED_FLAGGED_SQL = (
     " and not exists (select 1 from screening_log s"
     " where s.message_id = messages.id and s.status in ('held', 'dismissed'))"
 )
+_SIGNUP_COLUMNS = (
+    "id, telegram_user_id, telegram_chat_id, telegram_name, telegram_username,"
+    " status, step, business_name, contact_name, phone, delivery_address"
+)
+_SIGNUP_ANSWER_FIELDS = frozenset({"business_name", "contact_name", "phone", "delivery_address"})
 
 
 @dataclass(frozen=True)
@@ -392,6 +397,90 @@ class Database:
                 (order_id, order["version"]),
             ).fetchall()
         return {**order, "lines": lines}
+
+    def open_signup(self, telegram_user_id: int) -> dict | None:
+        with self.pool.connection() as conn:
+            return conn.execute(
+                f"select {_SIGNUP_COLUMNS} from signups"
+                " where telegram_user_id = %s and status in ('collecting', 'pending')",
+                (telegram_user_id,),
+            ).fetchone()
+
+    def create_signup(
+        self,
+        telegram_user_id: int,
+        telegram_chat_id: int,
+        telegram_name: str | None,
+        telegram_username: str | None,
+    ) -> dict:
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "insert into signups (telegram_user_id, telegram_chat_id, telegram_name, telegram_username)"
+                " values (%s, %s, %s, %s)"
+                " on conflict (telegram_user_id) where status in ('collecting', 'pending')"
+                " do update set telegram_chat_id = excluded.telegram_chat_id"
+                f" returning {_SIGNUP_COLUMNS}",
+                (telegram_user_id, telegram_chat_id, telegram_name, telegram_username),
+            ).fetchone()
+
+    def save_signup_answer(self, signup_id: int, field: str, value: str, next_step: str) -> None:
+        if field not in _SIGNUP_ANSWER_FIELDS:
+            raise ValueError(f"invalid signup field: {field}")
+        with self.pool.connection() as conn:
+            conn.execute(
+                f"update signups set {field} = %s, step = %s where id = %s and status = 'collecting'",
+                (value, next_step, signup_id),
+            )
+
+    def submit_signup(self, signup_id: int) -> bool:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "update signups set status = 'pending', submitted_at = now()"
+                " where id = %s and status = 'collecting' and step = 'review' returning id",
+                (signup_id,),
+            ).fetchone()
+        return row is not None
+
+    def restart_signup(self, signup_id: int) -> bool:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "update signups set step = 'business_name',"
+                " business_name = null, contact_name = null, phone = null, delivery_address = null"
+                " where id = %s and status = 'collecting' returning id",
+                (signup_id,),
+            ).fetchone()
+        return row is not None
+
+    def claim_due_signup_notice(self) -> dict | None:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "update signups set notified_at = now()"
+                " where id = ("
+                "     select id from signups"
+                "     where status in ('approved', 'rejected') and notified_at is null"
+                "     order by decided_at"
+                "     limit 1"
+                "     for update skip locked"
+                " ) returning id, telegram_chat_id, status, customer_id::text"
+            ).fetchone()
+            if row is None:
+                return None
+            result = dict(row)
+            if result["status"] == "approved" and result["customer_id"]:
+                customer = conn.execute(
+                    "select name from customers where id = %s",
+                    (result["customer_id"],),
+                ).fetchone()
+                if customer is not None:
+                    result["customer_name"] = customer["name"]
+        return result
+
+    def clear_signup_notice(self, signup_id: int) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                "update signups set notified_at = null where id = %s",
+                (signup_id,),
+            )
 
 
 class StockShort(Exception):

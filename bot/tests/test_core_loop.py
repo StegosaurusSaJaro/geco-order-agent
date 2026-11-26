@@ -2,7 +2,7 @@ import asyncio
 from decimal import Decimal
 
 from conftest import answer, scalar
-from geco_bot import main
+from geco_bot import main, onboarding
 from geco_bot.orders import fill_placeholders
 
 CAFE, RESTAURANT, HOTEL = -100001, -100003, -100006
@@ -105,8 +105,24 @@ def test_model_failure_gets_retry_reply_and_no_order(bot, db, reader, monkeypatc
 
 def test_unknown_sender_stores_nothing(bot, db, reader, monkeypatch):
     oat_order(reader, monkeypatch)
+    calls = []
+    orig_read = reader.read
+
+    async def spy_read(*args, **kwargs):
+        calls.append(args)
+        return await orig_read(*args, **kwargs)
+
+    monkeypatch.setattr(reader, "read", spy_read)
     counts = "select (select count(*) from messages) + (select count(*) from conversations) + (select count(*) from orders)"
     before = scalar(db, counts)
     reply = run(bot.on_text(424242, CHAT, "3 ctn oat milk"))
-    assert reply.text == main.UNKNOWN_SENDER
+    assert reply.text == onboarding.WELCOME
     assert scalar(db, counts) == before
+    assert scalar(db, "select count(*) from signups where telegram_user_id = %s and status = 'collecting'", 424242) == 1
+    assert calls == []
+
+    group_reply = run(bot.on_text(424243, -9001, "3 ctn oat milk"))
+    assert group_reply.text == onboarding.GROUP_SIGNUP_REPLY
+    assert scalar(db, counts) == before
+    assert scalar(db, "select count(*) from signups where telegram_user_id = %s", 424243) == 0
+    assert calls == []
