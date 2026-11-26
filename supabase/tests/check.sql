@@ -673,3 +673,72 @@ exception
     null;
 end
 $$;
+
+do $$
+declare
+  v_count bigint;
+  v_order_id uuid;
+  v_other_id uuid;
+  v_result text;
+  v_status text;
+  v_rejected_at timestamptz;
+begin
+  select count(*) into v_count
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'orders'
+    and column_name in ('rejected_by_staff_at', 'reject_notice_sent_at')
+    and data_type = 'timestamp with time zone'
+    and is_nullable = 'YES';
+  if v_count <> 2 then
+    raise exception 'orders reject notice columns missing or wrong type (count=%)', v_count;
+  end if;
+
+  begin
+    insert into orders (customer_id, conversation_id, status, source, total)
+    values ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'needs_review', 'text', 0.00)
+    returning id into v_order_id;
+
+    insert into orders (customer_id, conversation_id, status, source, total)
+    values ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'needs_review', 'text', 1.00)
+    returning id into v_other_id;
+
+    insert into order_lines (order_id, version, line_no, sku, quantity, unit_code, unit_price, line_total)
+    select v_other_id, 1, 1, p.sku, 1, p.unit_code, 1.00, 1.00
+    from products p
+    where p.sku = 'DRY-OAT-1L';
+
+    set local role authenticated;
+
+    v_result := public.review_order(v_order_id, 'reject');
+    if v_result is distinct from 'rejected' then
+      raise exception 'Expected review_order reject to return rejected, got %', v_result;
+    end if;
+
+    select status, rejected_by_staff_at into v_status, v_rejected_at
+    from orders
+    where id = v_order_id;
+    if v_status is distinct from 'cancelled' or v_rejected_at is null then
+      raise exception 'Expected rejected order to have status=cancelled and rejected_by_staff_at not null, got status=% rejected_by_staff_at=%', v_status, v_rejected_at;
+    end if;
+
+    v_result := public.review_order(v_other_id, 'approve');
+    if v_result is distinct from 'approved' then
+      raise exception 'Expected review_order approve to return approved, got %', v_result;
+    end if;
+
+    select status, rejected_by_staff_at into v_status, v_rejected_at
+    from orders
+    where id = v_other_id;
+    if v_status is distinct from 'confirmed' or v_rejected_at is not null then
+      raise exception 'Expected approved order to have status=confirmed and rejected_by_staff_at null, got status=% rejected_by_staff_at=%', v_status, v_rejected_at;
+    end if;
+
+    raise exception using errcode = 'P9999', message = 'rollback reject notice test writes';
+  exception
+    when sqlstate 'P9999' then
+      null;
+  end;
+  reset role;
+end
+$$;

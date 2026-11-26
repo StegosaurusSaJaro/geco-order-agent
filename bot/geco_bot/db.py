@@ -482,6 +482,29 @@ class Database:
                 (signup_id,),
             )
 
+    def claim_due_reject_notice(self) -> dict | None:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "update orders o set reject_notice_sent_at = now()"
+                " from conversations conv"
+                " where o.id = ("
+                "     select id from orders"
+                "     where status = 'cancelled' and rejected_by_staff_at is not null and reject_notice_sent_at is null"
+                "     order by rejected_by_staff_at"
+                "     limit 1"
+                "     for update skip locked"
+                " ) and conv.id = o.conversation_id"
+                " returning o.id::text, o.conversation_id::text, o.po_number, conv.telegram_chat_id"
+            ).fetchone()
+        return dict(row) if row else None
+
+    def clear_reject_notice(self, order_id: str) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                "update orders set reject_notice_sent_at = null where id = %s",
+                (order_id,),
+            )
+
 
 class StockShort(Exception):
     pass

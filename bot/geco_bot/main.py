@@ -37,6 +37,7 @@ CANCELLED = "Your order is cancelled."
 ALREADY_HANDLED = CONFIRM_REPLIES["handled"]
 RECEIPT_UNAVAILABLE = "Receipt is only available for confirmed orders."
 RESEND_FILE_REPLY = "Please send the file again"
+REJECT_NOTICE_TEXT = "Sorry, we couldn't accept order {ref}. A member of the GECO team will contact you shortly."
 
 
 @dataclass
@@ -435,6 +436,29 @@ async def process_signup_notices(app: Application, db: Database) -> int:
     return sent
 
 
+async def process_reject_notices(app: Application, db: Database) -> int:
+    sent = 0
+    failed: list[str] = []
+    try:
+        while (notice := db.claim_due_reject_notice()) is not None:
+            try:
+                text = REJECT_NOTICE_TEXT.format(ref=order_ref(notice))
+                if notice["telegram_chat_id"] > 0:
+                    await app.bot.send_message(chat_id=notice["telegram_chat_id"], text=text)
+                msg_id = db.save_message(notice["conversation_id"], "out", "bot", "text", text)
+                db.link_messages(notice["id"], [msg_id])
+                sent += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Failed to send reject notice for order %s", notice["id"])
+                failed.append(notice["id"])
+    finally:
+        for failed_id in failed:
+            db.clear_reject_notice(failed_id)
+    return sent
+
+
 def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Application:
     async def text_handler(update: Update, _ctx: ContextTypes.DEFAULT_TYPE):
         msg = update.effective_message
@@ -535,6 +559,12 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
                 raise
             except Exception:
                 log.exception("Signup notice poll failed")
+            try:
+                await process_reject_notices(application, bot.db)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Reject notice poll failed")
             await asyncio.sleep(poll_seconds)
 
     async def post_init(application: Application):
