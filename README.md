@@ -23,6 +23,8 @@ Food and beverage wholesalers take orders all day through casual chat messages (
 
 **GECO Order Agent** meets wholesale buyers directly inside Telegram. It parses unstructured messages into catalog SKUs and quantities, prices every line deterministically in Python from PostgreSQL at the sender's contracted tier, replies in seconds with a one-tap **Confirm / Cancel** draft, deducts stock atomically on confirmation, routes short-stock or high-value orders into staff review, and links each order to the exact chat messages that created it.
 
+New buyers start on the public **Iloilo Superb Mart** website: a landing page with a scannable Telegram QR code and a **Start on Telegram** button that opens the order bot (`@restock_gc_bot`), a walkthrough of how ordering works, a tier pricing demo, and a preview of the four sign-up questions the bot asks. Staff reach the Order Desk from the same site through **Staff sign in**.
+
 > [!IMPORTANT]
 > **AI reads, code prices.** Gemini never invents or computes prices, line totals, or stock figures. Even in natural-language Q&A replies, the model emits `{price:SKU}` and `{stock:SKU}` placeholders that Python resolves directly from `tier_prices` and `products.stock_qty` for the authenticated buyer's tier.
 
@@ -173,6 +175,7 @@ flowchart TD
 | **Database & Auth** | Supabase (PostgreSQL 18 compatible), Row-Level Security, `psycopg[binary,pool]` v3.2+ | Enforces strict customer scoping, atomic stock updates, and authenticated staff access. |
 | **Document Parsing** | Gemini multimodal + `openpyxl` / `xlrd` | Reads PDF and photo purchase orders and `.xlsx`/`.xls` spreadsheets into the same draft flow as text. |
 | **Receipts** | `fpdf2` | One PDF receipt per confirmed order, sent on request in Telegram. |
+| **Public Website** | Static HTML, CSS and JS in `dashboard/public/site/`, served at `/` by the Next.js middleware | Landing page for new buyers with the Telegram QR and sign-up preview; needs no build step and loads without a login. |
 | **Staff Dashboard** | Next.js (TypeScript), Tailwind CSS, Recharts, `exceljs`, Supabase Auth + Realtime | Order inbox beside linked Telegram chats, review approvals, staff replies, inventory, flagged messages, sign-up approvals, 4 report charts, and Excel export. |
 
 ---
@@ -215,6 +218,8 @@ geco-order-agent/
 ├── docs/
 │   └── setup.md                      # Clean-clone setup, checks and troubleshooting
 ├── dashboard/                        # Next.js staff dashboard (reads dashboard/.env.local)
+│   ├── middleware.ts                 # Login gate; serves the landing page at / to signed-out visitors
+│   ├── public/site/                  # Public landing page (index.html, scrollcraft.css, scrollcraft.js)
 │   ├── app/                          # orders, conversations, flagged, inventory, reports, signups, login, api/orders/export
 │   ├── components/                   # App shell, charts, chat log, filters, live refresh, skeletons
 │   └── lib/                          # Supabase client, Telegram sender, Excel export, formatting
@@ -316,7 +321,7 @@ npm run build
 npm start
 ```
 
-Open `http://localhost:3000` and sign in with the staff user. The staff screens are branded **Iloilo Superb Mart Order Desk**; receipts and the Excel export still name GECO Asia as the seller.
+Open `http://localhost:3000`. Signed out, `/` shows the public landing page; **Staff sign in** at the top right opens `/login`, and **Back to website** under the sign-in card returns to the landing page. Signed in, `/` goes straight to Orders, so use a private window to view the landing page as a visitor. The staff screens are branded **Iloilo Superb Mart Order Desk**; receipts and the Excel export still name GECO Asia as the seller.
 
 To host the dashboard on Vercel, set the project root to `dashboard` and add only the three variables above. The bot keeps running locally, since it uses long polling. Turn off public sign-up in Supabase Auth before the URL goes public, because every RLS policy trusts any signed-in user.
 
@@ -354,7 +359,8 @@ Both verification suites spin up an isolated, throwaway PostgreSQL 18 instance o
 - [x] Multimodal purchase order intake (PDF, photo, `.xlsx`, `.xls`)
 - [x] PDF receipts, reject notices, draft reminders and Telegram sign-up
 - [x] Draft guards: one open draft per chat, versioned Confirm buttons, visible removals, whole units only
-- [ ] Dashboard hosted on Vercel
+- [x] Public landing page with Telegram QR, served at `/` for signed-out visitors
+- [ ] Website and dashboard hosted on Vercel
 - [ ] Log every Gemini call to `model_calls` for cost and latency views
 
 ---
