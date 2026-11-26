@@ -362,7 +362,7 @@ Both verification suites spin up an isolated, throwaway PostgreSQL 18 instance o
 - [x] PDF receipts, reject notices, draft reminders and Telegram sign-up
 - [x] Draft guards: one open draft per chat, versioned Confirm buttons, visible removals, whole units only
 - [x] Public landing page with Telegram QR, served at `/` for signed-out visitors
-- [ ] Website and dashboard hosted on Vercel
+- [x] Website and dashboard hosted on Vercel at [geco-order-agent.vercel.app](https://geco-order-agent.vercel.app), redeployed on every merge to `main`; the bot runs locally
 - [ ] Log every Gemini call to `model_calls` for cost and latency views
 
 ---
