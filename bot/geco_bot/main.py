@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import io
 import logging
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -10,9 +11,10 @@ from telegram.ext import Application, CallbackQueryHandler, ContextTypes, Messag
 
 from geco_bot import orders
 from geco_bot.config import load_settings
-from geco_bot.db import Database
+from geco_bot.db import Customer, Database
 from geco_bot.reader import Reader, check_lines
 from geco_bot.receipt import build_receipt_pdf, order_ref
+from geco_bot.screen import FLAGGED_REPLY, load_rules, screen
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ CONFIRM_REPLIES = {
 CANCELLED = "Your order is cancelled."
 ALREADY_HANDLED = CONFIRM_REPLIES["handled"]
 RECEIPT_UNAVAILABLE = "Receipt is only available for confirmed orders."
+RESEND_FILE_REPLY = "Please send the file again"
 
 
 @dataclass
@@ -46,12 +49,34 @@ class OrderBot:
         review_threshold: Decimal = Decimal("2000"),
         quantity_factor: Decimal = Decimal("3"),
         quantity_min_history: int = 2,
+        flood_max_messages: int = 8,
+        flood_window_seconds: int = 60,
+        screen_rules: dict | None = None,
     ):
         self.db = db
         self.reader = reader
         self.review_threshold = review_threshold
         self.quantity_factor = quantity_factor
         self.quantity_min_history = quantity_min_history
+        self.flood_max_messages = flood_max_messages
+        self.flood_window_seconds = flood_window_seconds
+        self.screen_rules = screen_rules if screen_rules is not None else load_rules()
+
+    async def _reply_to_text(
+        self,
+        customer: Customer,
+        conversation_id: str,
+        inbound_id: str,
+        text: str,
+        history: list[dict],
+        draft: dict | None,
+    ) -> Reply:
+        reading = await self.reader.read(text, history, draft=draft)
+        reply = self.compose(customer, conversation_id, reading, draft=draft)
+        outbound_id = self.db.save_message(conversation_id, "out", "bot", "text", reply.text)
+        if reply.order_id:
+            self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
+        return reply
 
     async def on_text(self, user_id: int, chat_id: int, text: str, telegram_message_id=None) -> Reply:
         customer = self.db.customer_by_telegram_id(user_id)
@@ -61,12 +86,61 @@ class OrderBot:
         history = self.db.recent_messages(conversation_id)
         draft = self.db.open_draft(customer.id, conversation_id)
         inbound_id = self.db.save_message(conversation_id, "in", "customer", "text", text, telegram_message_id)
-        reading = await self.reader.read(text, history, draft=draft)
-        reply = self.compose(customer, conversation_id, reading, draft=draft)
-        outbound_id = self.db.save_message(conversation_id, "out", "bot", "text", reply.text)
-        if reply.order_id:
-            self.db.link_messages(reply.order_id, [inbound_id, outbound_id])
-        return reply
+        t0 = time.monotonic()
+        recent_count = self.db.recent_inbound_count(conversation_id, self.flood_window_seconds)
+        flagged = screen(text, recent_count, self.screen_rules, flood_max=self.flood_max_messages)
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        if flagged is not None:
+            decision, reason = flagged
+            self.db.log_screening(
+                user_id,
+                decision,
+                reason,
+                latency_ms,
+                message_id=inbound_id,
+                conversation_id=conversation_id,
+                status="held",
+            )
+            self.db.save_message(conversation_id, "out", "bot", "text", FLAGGED_REPLY)
+            return Reply(FLAGGED_REPLY)
+        return await self._reply_to_text(customer, conversation_id, inbound_id, text, history, draft)
+
+    async def process_released_flags(self, bot) -> int:
+        processed = 0
+        while (flag := self.db.claim_released_flag()) is not None:
+            try:
+                conversation_id = flag["conversation_id"]
+                chat_id = flag["telegram_chat_id"]
+                if flag["kind"] == "text":
+                    customer = Customer(
+                        id=flag["customer_id"],
+                        name=flag["customer_name"],
+                        tier_id=flag["tier_id"],
+                    )
+                    history = self.db.history_before(conversation_id, flag["created_at"])
+                    draft = self.db.open_draft(customer.id, conversation_id)
+                    reply = await self._reply_to_text(
+                        customer,
+                        conversation_id,
+                        flag["message_id"],
+                        flag["body"] or "",
+                        history,
+                        draft,
+                    )
+                    markup = buttons(reply.order_id) if reply.order_id else None
+                    text = reply.text
+                else:
+                    text = RESEND_FILE_REPLY
+                    markup = None
+                    self.db.save_message(conversation_id, "out", "bot", "text", text)
+                if chat_id > 0:
+                    await bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+                processed += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Failed to process released flag %s", flag["id"])
+        return processed
 
     def compose(self, customer, conversation_id, reading, source: str = "text", draft: dict | None = None) -> Reply:
         if reading is None:
@@ -152,6 +226,21 @@ class OrderBot:
         inbound_id = self.db.save_message(
             conversation_id, "in", "customer", kind, caption, telegram_message_id, file_name, file_mime
         )
+        t0 = time.monotonic()
+        recent_count = self.db.recent_inbound_count(conversation_id, self.flood_window_seconds)
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        if recent_count > self.flood_max_messages:
+            self.db.log_screening(
+                user_id,
+                "rate_limited",
+                f"{recent_count} messages in window",
+                latency_ms,
+                message_id=inbound_id,
+                conversation_id=conversation_id,
+                status="held",
+            )
+            self.db.save_message(conversation_id, "out", "bot", "text", FLAGGED_REPLY)
+            return Reply(FLAGGED_REPLY)
         source = file_source(kind, file_name, file_mime)
         if source is None:
             self.db.save_message(conversation_id, "out", "bot", "text", READ_FAILED)
@@ -288,6 +377,12 @@ def build_app(token: str, bot: OrderBot, poll_seconds: float = 5.0) -> Applicati
                 raise
             except Exception:
                 log.exception("Receipt poll failed")
+            try:
+                await bot.process_released_flags(application.bot)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Released flag poll failed")
             await asyncio.sleep(poll_seconds)
 
     async def post_init(application: Application):
@@ -321,6 +416,8 @@ def main():
             settings.review_threshold_usd,
             settings.quantity_factor,
             settings.quantity_min_history,
+            settings.FLOOD_MAX_MESSAGES,
+            settings.FLOOD_WINDOW_SECONDS,
         ),
         poll_seconds=settings.poll_seconds,
     ).run_polling()
