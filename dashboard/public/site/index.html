@@ -1,0 +1,3790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Iloilo Superb Mart: Wholesale Order Desk on Telegram</title>
+<meta name="description" content="Send messy F&B orders on Telegram. Iloilo Superb Mart prices every SKU deterministically at your contracted tier and hands you a four-question trade sign-up.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='rgb(208,26,49)'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Sans:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/site/scrollcraft.css">
+<style>
+  :root {
+    --raw-bg: rgb(16, 22, 40);
+    --raw-surface: rgb(26, 33, 53);
+    --raw-surface-2: rgb(36, 44, 64);
+    --raw-ink: rgb(242, 241, 236);
+    --raw-muted: rgb(176, 182, 195);
+    --raw-line: rgb(53, 61, 80);
+
+    --desk-bg: rgb(241, 241, 236);
+    --desk-surface: rgb(249, 249, 246);
+    --desk-well: rgb(231, 231, 225);
+    --desk-ink: rgb(18, 26, 46);
+    --desk-muted: rgb(68, 74, 88);
+    --desk-line: rgb(214, 214, 208);
+
+    --crimson-rule: rgb(208, 26, 49);
+    --crimson-cta: rgb(156, 12, 34);
+    --crimson-cta-hover: rgb(131, 8, 26);
+    --crimson-cta-ink: rgb(252, 251, 249);
+
+    --status-ok: rgb(0, 105, 44);
+    --status-ok-bg: rgb(219, 242, 224);
+    --status-warn: rgb(140, 74, 0);
+    --status-warn-bg: rgb(254, 238, 209);
+    --status-warn-dark: rgb(242, 195, 94);
+
+    --sc-canvas: var(--desk-bg);
+    --sc-surface: var(--desk-surface);
+    --sc-ink: var(--desk-ink);
+    --sc-ink-soft: var(--desk-muted);
+    --sc-accent: var(--crimson-cta);
+    --sc-accent-ink: var(--crimson-cta-ink);
+
+    --sc-font-display: "Instrument Sans", "Geist", system-ui, sans-serif;
+    --sc-font-text: "Geist", system-ui, sans-serif;
+    --sc-font-mono: "Geist Mono", ui-monospace, monospace;
+
+    --sc-shadow-desk-1: 0 1px 2px rgba(18, 26, 46, 0.06), 0 4px 12px -2px rgba(18, 26, 46, 0.08);
+    --sc-shadow-desk-2: 0 2px 6px rgba(18, 26, 46, 0.06), 0 14px 32px -8px rgba(18, 26, 46, 0.11);
+    --sc-shadow-raw: 0 4px 10px rgba(8, 11, 24, 0.36), 0 22px 46px -12px rgba(8, 11, 24, 0.48);
+
+    --seam-x: 50%;
+    --seam-y: 70%;
+    --chrome-h: 54px;
+  }
+
+  body {
+    background: var(--desk-bg);
+    color: var(--desk-ink);
+    font-family: var(--sc-font-text);
+  }
+
+  .sc-grain {
+    display: none;
+  }
+
+  .side-raw {
+    --sc-ink: var(--raw-ink);
+    --sc-ink-soft: var(--raw-muted);
+    --sc-hairline: var(--raw-line);
+    color: var(--raw-ink);
+    background: var(--raw-bg);
+  }
+
+  .side-desk {
+    --sc-ink: var(--desk-ink);
+    --sc-ink-soft: var(--desk-muted);
+    --sc-hairline: var(--desk-line);
+    color: var(--desk-ink);
+    background: var(--desk-bg);
+  }
+
+  .seam-chrome {
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: var(--chrome-h);
+    z-index: var(--sc-z-chrome);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: clamp(1rem, 2.8vw, 2.25rem);
+    background: rgba(247, 247, 243, 0.94);
+    border-bottom: 1px solid var(--desk-line);
+    color: var(--desk-ink);
+  }
+
+  .seam-chrome__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  .seam-chrome__mark {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--sc-r-sm);
+    background: var(--crimson-cta);
+    color: var(--crimson-cta-ink);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .seam-chrome__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--sc-font-mono);
+    font-size: 0.75rem;
+    color: var(--desk-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .seam-chrome__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .seam-chrome__swatch {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+  }
+
+  .seam-chrome__swatch--raw {
+    background: var(--raw-bg);
+    border: 1px solid var(--desk-muted);
+  }
+
+  .seam-chrome__swatch--desk {
+    background: var(--crimson-rule);
+  }
+
+  .seam-chrome__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.125rem;
+    flex: none;
+  }
+
+  .link-staff {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--desk-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+    text-decoration-thickness: 1px;
+    padding: 0.5rem 0.25rem;
+    white-space: nowrap;
+    transition: color var(--sc-d-fast) var(--sc-ease-out);
+  }
+
+  .link-staff:hover {
+    color: var(--desk-ink);
+  }
+
+  .btn-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 40px;
+    padding: 0.55rem 1.05rem;
+    border-radius: var(--sc-r-sm);
+    border: 1px solid transparent;
+    background: var(--crimson-cta);
+    color: var(--crimson-cta-ink);
+    font-family: var(--sc-font-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: var(--sc-shadow-desk-1);
+    transition: background-color var(--sc-d-fast) var(--sc-ease-out), transform 110ms var(--sc-ease-out);
+  }
+
+  .btn-cta--lg {
+    min-height: 46px;
+    padding: 0.75rem 1.35rem;
+    font-size: 0.9375rem;
+  }
+
+  .btn-cta:hover {
+    background: var(--crimson-cta-hover);
+  }
+
+  .btn-cta:active {
+    transform: scale(0.97);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 44px;
+    padding: 0.55rem 0.95rem;
+    border-radius: var(--sc-r-sm);
+    border: 1px solid var(--desk-line);
+    background: var(--desk-surface);
+    color: var(--desk-ink);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--sc-d-fast) var(--sc-ease-out), border-color var(--sc-d-fast) var(--sc-ease-out), transform 110ms var(--sc-ease-out);
+  }
+
+  .btn-ghost:hover {
+    background: var(--desk-well);
+    border-color: var(--desk-muted);
+  }
+
+  .btn-ghost:active {
+    transform: scale(0.97);
+  }
+
+  .split-backdrop {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: var(--seam-x) minmax(0, 1fr);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .split-backdrop__raw {
+    background: var(--raw-bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .split-backdrop__raw::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(to right, rgba(72, 82, 112, 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(72, 82, 112, 0.22) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+
+  .split-backdrop__desk {
+    background: var(--desk-bg);
+    position: relative;
+  }
+
+  .split-divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--seam-x);
+    width: 2px;
+    transform: translateX(-1px);
+    background: var(--crimson-rule);
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .stage-split {
+    display: grid;
+    grid-template-columns: var(--seam-x) minmax(0, 1fr);
+    padding-top: var(--chrome-h);
+  }
+
+  .stage-col {
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+    padding: clamp(1.5rem, 3.8vw, 3.5rem) clamp(1.25rem, 3.8vw, 4rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .hero-chat-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 31rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .chat-frame {
+    background: var(--raw-surface);
+    border: 1px solid var(--raw-line);
+    border-radius: var(--sc-r-md);
+    padding: 1.25rem 1.35rem;
+    box-shadow: var(--sc-shadow-raw), inset 0 1px 0 rgba(242, 241, 236, 0.08);
+  }
+
+  .chat-frame__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--raw-line);
+    font-size: 0.8125rem;
+    color: var(--raw-muted);
+  }
+
+  .chat-frame__sender {
+    font-weight: 600;
+    color: var(--raw-ink);
+  }
+
+  .chat-frame__time {
+    font-family: var(--sc-font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chat-frame__msg {
+    margin: 0.9rem 0 0;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: var(--raw-ink);
+    font-weight: 500;
+  }
+
+  .chat-frame__meta {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--raw-line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem 1.25rem;
+    font-family: var(--sc-font-mono);
+    font-size: 0.75rem;
+    color: var(--raw-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chat-note {
+    background: var(--raw-surface);
+    border: 1px solid var(--raw-line);
+    border-radius: var(--sc-r-sm);
+    padding: 0.9rem 1.1rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--raw-ink);
+  }
+
+  .hero-desk {
+    max-width: 34rem;
+    margin-inline: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--sc-font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--desk-muted);
+    margin: 0;
+  }
+
+  .hero-title {
+    font-family: var(--sc-font-display);
+    font-size: clamp(2.1rem, 3.6vw, 3.55rem);
+    font-weight: 600;
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+    color: var(--desk-ink);
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .hero-sub {
+    font-size: clamp(1rem, 1.1vw, 1.125rem);
+    line-height: 1.55;
+    color: var(--desk-muted);
+    max-width: 44ch;
+    text-wrap: pretty;
+    margin: 0;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    margin-top: 0.25rem;
+  }
+
+  .hero-ledger-strip {
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--desk-line);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .ledger-datum {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .ledger-datum__k {
+    font-size: 0.8125rem;
+    color: var(--desk-muted);
+  }
+
+  .ledger-datum__v {
+    font-family: var(--sc-font-mono);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--desk-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .flow-split {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--seam-x) minmax(0, 1fr);
+    border-top: 1px solid var(--desk-line);
+  }
+
+  .flow-col {
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+    padding: clamp(3rem, 6vw, 5.5rem) clamp(1.25rem, 3.8vw, 4rem);
+  }
+
+  .flow-col--compact-top {
+    padding-top: clamp(2rem, 4.2vw, 3.75rem);
+  }
+
+  .flow-inner {
+    max-width: 33rem;
+    margin-inline: auto;
+  }
+
+  .section-h2 {
+    font-family: var(--sc-font-display);
+    font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .fault-list {
+    margin: 1.75rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--raw-line);
+  }
+
+  .fault-list li {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--raw-line);
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+
+  .fault-list__tag {
+    font-family: var(--sc-font-mono);
+    font-size: 0.8125rem;
+    color: var(--status-warn-dark);
+  }
+
+  .fault-list__desc {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--raw-ink);
+  }
+
+  .proof-grid {
+    margin-top: 1.75rem;
+    border-top: 1px solid var(--desk-line);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .proof-cell {
+    padding: 1.25rem 1rem 1.25rem 0;
+    border-bottom: 1px solid var(--desk-line);
+  }
+
+  .proof-cell:nth-child(even) {
+    padding-left: 1.25rem;
+    border-left: 1px solid var(--desk-line);
+  }
+
+  .proof-cell__num {
+    font-family: var(--sc-font-display);
+    font-size: clamp(2rem, 3vw, 2.75rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--desk-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .proof-cell__label {
+    margin-top: 0.4rem;
+    font-size: 0.875rem;
+    color: var(--desk-muted);
+    line-height: 1.4;
+  }
+
+  .peak-stage {
+    padding-top: var(--chrome-h);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .peak-top-bar {
+    position: relative;
+    z-index: 6;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding: 0.85rem clamp(1rem, 3.2vw, 3rem);
+  }
+
+  .peak-heading-box {
+    background: var(--desk-surface);
+    border: 1px solid var(--desk-line);
+    border-radius: var(--sc-r-sm);
+    padding: 0.55rem 0.95rem;
+    box-shadow: var(--sc-shadow-desk-1);
+    color: var(--desk-ink);
+  }
+
+  .peak-heading-box h2 {
+    font-family: var(--sc-font-display);
+    font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .tier-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--sc-r-sm);
+    background: var(--desk-surface);
+    border: 1px solid var(--desk-line);
+    box-shadow: var(--sc-shadow-desk-1);
+  }
+
+  .tier-btn {
+    border: 0;
+    background: transparent;
+    color: var(--desk-muted);
+    font-family: var(--sc-font-text);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.75rem;
+    min-height: 36px;
+    border-radius: calc(var(--sc-r-sm) - 2px);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--sc-d-fast) var(--sc-ease-out), color var(--sc-d-fast) var(--sc-ease-out);
+  }
+
+  .tier-btn:hover {
+    color: var(--desk-ink);
+  }
+
+  .tier-btn[aria-pressed="true"] {
+    background: var(--desk-ink);
+    color: var(--desk-surface);
+  }
+
+  .xray-viewport {
+    position: relative;
+    z-index: 4;
+    flex: 1 1 auto;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    padding: 0.5rem clamp(1rem, 4vw, 4rem);
+  }
+
+  .xray-stack {
+    position: relative;
+    width: 100%;
+    max-width: 1020px;
+    margin-inline: auto;
+  }
+
+  .xray-layer {
+    border-radius: var(--sc-r-md);
+    padding: clamp(1rem, 2.1vw, 1.65rem);
+  }
+
+  .xray-layer--raw {
+    position: relative;
+    background: var(--raw-surface);
+    color: var(--raw-ink);
+    border: 1px solid var(--raw-line);
+    box-shadow: var(--sc-shadow-raw), inset 0 1px 0 rgba(242, 241, 236, 0.08);
+    clip-path: inset(0 calc(100% - var(--specimen-x, 70%)) 0 0);
+  }
+
+  .xray-layer--desk {
+    position: absolute;
+    inset: 0;
+    background: var(--desk-surface);
+    color: var(--desk-ink);
+    border: 1px solid var(--desk-line);
+    box-shadow: var(--sc-shadow-desk-2), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    clip-path: inset(0 0 0 var(--specimen-x, 70%));
+  }
+
+  .xray-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(128, 134, 152, 0.24);
+    font-size: 0.8125rem;
+  }
+
+  .xray-header__title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+  }
+
+  .xray-header__meta {
+    font-family: var(--sc-font-mono);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.88;
+  }
+
+  .xray-rows {
+    margin-top: 0.65rem;
+    display: grid;
+    grid-template-rows: 4.35rem 4.35rem 5.45rem;
+    gap: 0.6rem;
+  }
+
+  .xray-row {
+    display: grid;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+    border-radius: var(--sc-r-sm);
+    height: 100%;
+  }
+
+  .xray-row--raw {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 0.85rem;
+    background: var(--raw-surface-2);
+    border: 1px solid var(--raw-line);
+  }
+
+  .xray-row--desk {
+    grid-template-columns: 7.25rem minmax(0, 1.3fr) 5.5rem 5.75rem 6rem;
+    gap: 0.75rem;
+    background: var(--desk-bg);
+    border: 1px solid var(--desk-line);
+  }
+
+  .xray-row__token {
+    font-family: var(--sc-font-mono);
+    font-size: 0.8125rem;
+    color: var(--raw-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .xray-row__rawtext {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--raw-ink);
+  }
+
+  .sku-code {
+    font-family: var(--sc-font-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--desk-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sku-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--desk-ink);
+    line-height: 1.25;
+  }
+
+  .sku-warn {
+    display: inline-block;
+    margin-top: 0.25rem;
+    padding: 0.14rem 0.45rem;
+    border-radius: 4px;
+    background: var(--status-warn-bg);
+    color: var(--status-warn);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .cell-mono {
+    font-family: var(--sc-font-mono);
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .cell-unit {
+    font-family: var(--sc-font-mono);
+    font-size: 0.8125rem;
+    color: var(--desk-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .xray-footer {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(128, 134, 152, 0.24);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+  }
+
+  .xray-total {
+    font-family: var(--sc-font-mono);
+    font-size: 1.125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--desk-ink);
+  }
+
+  .xray-badge-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.24rem 0.6rem;
+    border-radius: 4px;
+    background: var(--status-ok-bg);
+    color: var(--status-ok);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .peak-cues-bar {
+    position: relative;
+    z-index: 6;
+    min-height: 5.75rem;
+    padding: 0.4rem clamp(1rem, 3.2vw, 3rem) 1.15rem;
+    display: grid;
+    grid-template-columns: 23% 1fr 24%;
+    align-items: end;
+    pointer-events: none;
+  }
+
+  .peak-cue {
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .peak-cue--left {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--raw-ink);
+  }
+
+  .peak-cue--right {
+    grid-column: 3;
+    grid-row: 1;
+    color: var(--desk-ink);
+    text-align: right;
+  }
+
+  .peak-cue strong {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+
+  .guard-list {
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .guard-list li {
+    padding-left: 1rem;
+    border-left: 1px solid var(--crimson-rule);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--raw-ink);
+  }
+
+  .transcript-wrap {
+    padding: 0.35rem;
+  }
+
+  .transcript-card {
+    background: var(--desk-surface);
+    border: 1px solid var(--desk-line);
+    border-radius: var(--sc-r-md);
+    padding: 1.35rem;
+    box-shadow: var(--sc-shadow-desk-2), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+
+  .transcript-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--desk-line);
+  }
+
+  .transcript-card__title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--desk-ink);
+  }
+
+  .transcript-card__meta {
+    font-family: var(--sc-font-mono);
+    font-size: 0.75rem;
+    color: var(--desk-muted);
+  }
+
+  .step-table {
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .step-table li {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--desk-line);
+    font-size: 0.875rem;
+  }
+
+  .step-table li:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .step-table__k {
+    font-family: var(--sc-font-mono);
+    font-size: 0.78rem;
+    color: var(--desk-muted);
+  }
+
+  .step-table__v {
+    color: var(--desk-ink);
+    font-weight: 500;
+  }
+
+  .close-stage {
+    padding-top: var(--chrome-h);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .close-body {
+    position: relative;
+    z-index: 4;
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    width: 100%;
+    max-width: 1120px;
+    margin-inline: auto;
+    padding: 1.5rem clamp(1.25rem, 3.8vw, 3rem);
+    padding-left: max(clamp(1.25rem, 3.8vw, 3rem), calc(var(--seam-x) + 1.75rem));
+  }
+
+  .close-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    min-width: 0;
+  }
+
+  .close-title {
+    font-family: var(--sc-font-display);
+    font-size: clamp(2rem, 3.2vw, 3.1rem);
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    color: var(--desk-ink);
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .close-sub {
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--desk-muted);
+    max-width: 44ch;
+    margin: 0;
+  }
+
+  .launch-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.25rem;
+  }
+
+  .qr-plate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--sc-r-sm);
+    background: var(--desk-surface);
+    border: 1px solid var(--desk-line);
+    box-shadow: var(--sc-shadow-desk-1);
+  }
+
+  .qr-plate__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    font-size: 0.78rem;
+    color: var(--desk-muted);
+  }
+
+  .qr-plate__handle {
+    font-family: var(--sc-font-mono);
+    font-weight: 500;
+    color: var(--desk-ink);
+  }
+
+  .apply-card {
+    background: var(--desk-surface);
+    border: 1px solid var(--desk-line);
+    border-radius: var(--sc-r-md);
+    padding: 1.25rem 1.35rem;
+    box-shadow: var(--sc-shadow-desk-2), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    color: var(--desk-ink);
+  }
+
+  .apply-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--desk-line);
+  }
+
+  .apply-card__title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    margin: 0;
+  }
+
+  .apply-card__sub {
+    font-family: var(--sc-font-mono);
+    font-size: 0.75rem;
+    color: var(--desk-muted);
+  }
+
+  .apply-grid {
+    margin-top: 0.85rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .field--full {
+    grid-column: 1 / -1;
+  }
+
+  .field label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--desk-muted);
+  }
+
+  .field input {
+    min-height: 40px;
+    padding: 0.45rem 0.7rem;
+    border-radius: var(--sc-r-sm);
+    border: 1px solid var(--desk-line);
+    background: var(--desk-bg);
+    color: var(--desk-ink);
+    font-size: 0.875rem;
+    transition: border-color var(--sc-d-fast) var(--sc-ease-out);
+  }
+
+  .field input:focus {
+    outline: none;
+    border-color: var(--crimson-cta);
+  }
+
+  .summary-box {
+    margin-top: 0.85rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: var(--sc-r-sm);
+    background: var(--desk-bg);
+    border: 1px solid var(--desk-line);
+    font-family: var(--sc-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--desk-ink);
+    white-space: pre-line;
+  }
+
+  .apply-foot {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--desk-muted);
+  }
+
+  .desk-footer {
+    position: relative;
+    z-index: 4;
+    border-top: 1px solid var(--desk-line);
+    padding: 0.85rem clamp(1.25rem, 3.8vw, 3rem);
+    padding-left: max(clamp(1.25rem, 3.8vw, 3rem), calc(var(--seam-x) + 1.75rem));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    font-size: 0.8125rem;
+    color: var(--desk-muted);
+    background: var(--desk-bg);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(16, 22, 40, 0.58);
+    display: none;
+    place-items: center;
+    padding: 1rem;
+  }
+
+  .modal-backdrop[data-open="true"] {
+    display: grid;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-width: 460px;
+    background: var(--desk-surface);
+    color: var(--desk-ink);
+    border: 1px solid var(--desk-line);
+    border-radius: var(--sc-r-md);
+    padding: 1.4rem;
+    box-shadow: var(--sc-shadow-desk-2);
+    transform: scale(0.96);
+    opacity: 0;
+    transition: transform 220ms var(--sc-ease-out), opacity 220ms var(--sc-ease-out);
+  }
+
+  .modal-backdrop[data-open="true"] .modal-panel {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .modal-title {
+    font-family: var(--sc-font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .toast-banner {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 95;
+    max-width: 360px;
+    background: var(--raw-bg);
+    color: var(--raw-ink);
+    border: 1px solid var(--raw-line);
+    border-left: 3px solid var(--crimson-rule);
+    border-radius: var(--sc-r-sm);
+    padding: 0.85rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    box-shadow: var(--sc-shadow-raw);
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 200ms var(--sc-ease-out), transform 200ms var(--sc-ease-out);
+  }
+
+  .toast-banner[data-visible="true"] {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  @media (max-width: 860px) {
+    .seam-chrome {
+      padding-inline: 0.75rem;
+    }
+
+    .seam-chrome__status {
+      display: none;
+    }
+
+    .brand-sub {
+      display: none;
+    }
+
+    .seam-chrome__actions {
+      gap: 0.5rem;
+    }
+
+    .seam-chrome .link-staff {
+      font-size: 0.8125rem;
+      padding: 0.45rem 0.25rem;
+    }
+
+    .seam-chrome .btn-cta {
+      min-height: 36px;
+      padding: 0.45rem 0.72rem;
+      font-size: 0.8125rem;
+    }
+
+    .split-backdrop {
+      grid-template-columns: 1fr;
+      grid-template-rows: 42% 58%;
+    }
+
+    .split-divider {
+      top: 42%;
+      bottom: auto;
+      left: 0;
+      right: 0;
+      width: auto;
+      height: 2px;
+      transform: translateY(-1px);
+    }
+
+    .stage-split {
+      grid-template-columns: 1fr;
+      grid-template-rows: 42% 58%;
+    }
+
+    .stage-col {
+      padding: 0.9rem 1rem;
+      justify-content: center;
+    }
+
+    .chat-frame {
+      padding: 0.85rem 0.95rem;
+    }
+
+    .chat-frame__msg {
+      font-size: 0.95rem;
+    }
+
+    .chat-note {
+      display: none;
+    }
+
+    .hero-title {
+      font-size: clamp(1.6rem, 6.4vw, 2.05rem);
+    }
+
+    .hero-sub {
+      font-size: 0.9rem;
+    }
+
+    .hero-ledger-strip {
+      gap: 0.5rem;
+      padding-top: 0.65rem;
+    }
+
+    .flow-split {
+      grid-template-columns: 1fr;
+    }
+
+    .flow-split .split-backdrop,
+    .flow-split .split-divider {
+      display: none;
+    }
+
+    .flow-col {
+      padding: 2.25rem 1rem;
+    }
+
+    .fault-list li {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+
+    .peak-top-bar {
+      padding: 0.5rem 0.85rem;
+      gap: 0.45rem;
+    }
+
+    .peak-heading-box {
+      padding: 0.35rem 0.6rem;
+    }
+
+    .peak-heading-box h2 {
+      font-size: 0.9rem;
+    }
+
+    .tier-btn {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.5rem;
+      min-height: 32px;
+    }
+
+    .xray-viewport {
+      padding: 0.25rem 0.85rem;
+    }
+
+    .xray-layer {
+      padding: 0.75rem 0.85rem;
+    }
+
+    .xray-header {
+      padding-bottom: 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .xray-header__title {
+      font-size: 0.84rem;
+    }
+
+    .xray-layer--raw {
+      clip-path: inset(0 0 calc(100% - var(--seam-y, 70%)) 0);
+    }
+
+    .xray-layer--desk {
+      clip-path: inset(var(--seam-y, 70%) 0 0 0);
+    }
+
+    .xray-rows {
+      margin-top: 0.5rem;
+      grid-template-rows: 3.1rem 3.1rem 4.3rem;
+      gap: 0.4rem;
+    }
+
+    .xray-row {
+      padding: 0.35rem 0.55rem;
+    }
+
+    .xray-row--raw {
+      grid-template-columns: 4.1rem minmax(0, 1fr);
+      gap: 0.45rem;
+    }
+
+    .xray-row--desk {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.25rem 0.5rem;
+    }
+
+    .xray-row--desk .sku-code,
+    .xray-row--desk .cell-unit,
+    .xray-row--desk [data-price-unit] {
+      display: none;
+    }
+
+    .xray-row__rawtext,
+    .sku-name {
+      font-size: 0.8125rem;
+    }
+
+    .sku-warn {
+      font-size: 0.68rem;
+      padding: 0.1rem 0.35rem;
+      margin-top: 0.15rem;
+    }
+
+    .xray-footer {
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      font-size: 0.75rem;
+      gap: 0.4rem;
+    }
+
+    .xray-total {
+      font-size: 0.95rem;
+    }
+
+    .peak-cues-bar {
+      grid-template-columns: 1fr;
+      min-height: 4.5rem;
+      padding: 0.25rem 0.85rem 0.75rem;
+    }
+
+    .peak-cue--left,
+    .peak-cue--right {
+      grid-column: 1;
+      grid-row: 1;
+      text-align: left;
+      background: var(--desk-surface);
+      color: var(--desk-ink);
+      border: 1px solid var(--desk-line);
+      border-radius: var(--sc-r-sm);
+      padding: 0.45rem 0.65rem;
+      font-size: 0.8125rem;
+    }
+
+    .peak-stage .split-backdrop {
+      grid-template-columns: 1fr;
+      grid-template-rows: var(--seam-y, 70%) minmax(0, 1fr);
+    }
+
+    .peak-stage .split-divider {
+      top: var(--seam-y, 70%);
+      bottom: auto;
+      left: 0;
+      right: 0;
+      width: auto;
+      height: 2px;
+      transform: translateY(-1px);
+    }
+
+    .close-stage .split-backdrop,
+    .close-stage .split-divider {
+      display: none;
+    }
+
+    .close-stage {
+      background: var(--desk-bg);
+    }
+
+    .close-body {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+      padding: 0.6rem 0.9rem;
+      padding-left: 0.9rem;
+      align-content: center;
+    }
+
+    .close-copy {
+      gap: 0.55rem;
+    }
+
+    .close-title {
+      font-size: clamp(1.35rem, 5.6vw, 1.75rem);
+    }
+
+    .close-sub {
+      font-size: 0.8125rem;
+      line-height: 1.4;
+    }
+
+    .qr-plate {
+      display: inline-flex;
+    }
+
+    .apply-card {
+      padding: 0.75rem 0.85rem;
+    }
+
+    .apply-card__sub {
+      display: none;
+    }
+
+    .apply-grid {
+      margin-top: 0.55rem;
+      gap: 0.45rem;
+    }
+
+    .field label {
+      font-size: 0.72rem;
+    }
+
+    .field input {
+      min-height: 34px;
+      padding: 0.3rem 0.55rem;
+      font-size: 0.8125rem;
+    }
+
+    .summary-box {
+      display: none;
+    }
+
+    .apply-foot {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .apply-foot .btn-ghost {
+      min-height: 36px;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8125rem;
+    }
+
+    .desk-footer {
+      padding: 0.5rem 0.9rem;
+      padding-left: 0.9rem;
+      font-size: 0.72rem;
+      gap: 0.35rem 0.85rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --seam-x: 42%;
+    }
+
+    #apply {
+      --seam-x: 0%;
+    }
+
+    #apply .split-backdrop,
+    #apply .split-divider {
+      display: none;
+    }
+
+    #apply .close-stage {
+      background: var(--desk-bg);
+    }
+
+    .xray-layer--raw {
+      clip-path: inset(0 58% 0 0);
+    }
+
+    .xray-layer--desk {
+      clip-path: inset(0 0 0 42%);
+    }
+
+    .close-body,
+    .desk-footer {
+      padding-left: clamp(1.25rem, 3.8vw, 3rem);
+    }
+  }
+
+  #act-hero .side-raw { overflow: hidden; isolation: isolate; justify-content: flex-end; background: #212c37; }
+  .order-field { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+  .order-caption { margin: 0; padding: 1rem 0 0; max-width: 27rem; border-top: 1px solid #babfbd80; color: #f7f1de; }
+  .order-caption figcaption { display:flex; justify-content: space-between; font: 500 .8rem var(--sc-font-mono); }
+  .order-caption figcaption span { color: #c7c9be; }
+  .order-caption blockquote { margin: .65rem 0 0; font-size: clamp(1rem,1.4vw,1.35rem); line-height:1.35; }
+  #act-hero .hero-title { font-size: clamp(3rem,5.3vw,6rem); font-weight: 600; line-height: .99; letter-spacing: -.065em; }
+  @media(max-width:860px) {
+    #act-hero .hero-title { font-size: clamp(2rem,8vw,3.65rem); }
+    .order-caption { max-width: 30rem; padding-top:.35rem; }
+    .order-caption blockquote { font-size:.9rem; margin-top:.2rem; }
+  }
+
+  #act-hero { position:relative; height:100dvh; min-height:360px; background:#181b20; }
+  #field-copy, #hex-out { position:absolute; inset:0; width:100%; height:100%; }
+  #field-copy { display:grid; place-items:center; background:#181b20; color:#f6f1e6; }
+  #hex-out { pointer-events:none; visibility:hidden; }
+  #act-hero.ready #hex-out { visibility:visible; }
+  #act-hero:has(a:focus-visible) #hex-out { visibility:hidden; }
+  .field-type { display:grid; justify-items:center; text-align:center; gap:16px; }
+  .field-mark { background:#d33646; color:#fbf4e7; padding:6px 12px; font:bold 38px Georgia,serif; margin-bottom:10px; }
+  .field-type h1 { font:600 clamp(27px,8.2vw,124px)/1 var(--sc-font-display); letter-spacing:-.055em; margin:0; }
+  .field-type p { margin:0; font:500 clamp(16px,2vw,22px)/1.4 var(--sc-font-display); }
+  .field-type small { font:400 clamp(14px,1.6vw,18px)/1.5 var(--sc-font-display); color:#c9c6c1; }
+  .field-type a { color:#fff9ee; background:#ba2436; margin-top:14px; padding:15px 25px; font:600 16px/1.4 var(--sc-font-display); text-decoration:none; }
+  .peak-stage,.close-stage { position:relative; min-height:85svh; height:auto; justify-content:center; }
+  #act-xray { background:var(--desk-bg); }
+  .peak-top-bar { width:min(100%,1100px); margin-inline:auto; }
+  #act-xray .split-backdrop,#act-xray .split-divider,#apply .split-backdrop,#apply .split-divider { display:none; }
+  #act-xray .xray-stack { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  #act-xray .xray-layer { position:relative; inset:auto; clip-path:none; min-width:0; }
+  #act-xray .xray-viewport { flex:0; padding-block:1rem 3rem; }
+  #apply { --seam-x:0%; scroll-margin-top:var(--chrome-h); }
+  .close-stage { background:var(--desk-bg); }
+  @media(max-width:860px){ #act-xray .xray-stack { grid-template-columns:1fr; } }
+  @media (max-width: 480px) {
+    .seam-chrome__brand { gap:.4rem; font-size:.85rem; }
+    .seam-chrome__actions { gap:.3rem; }
+    .seam-chrome .btn-cta { padding-inline:.55rem; }
+    .qr-plate { flex-wrap:wrap; max-width:100%; }
+  }
+
+  main > section + section { border-block-start: 1px solid #b5b6b1; }
+  #act-cost { background:var(--raw-bg); border-top:4px solid var(--crimson-rule); }
+  #act-cost .split-backdrop,#act-cost .split-divider { display:none; }
+  #act-cost .side-desk { background:var(--raw-bg); color:var(--raw-ink); --desk-muted:var(--raw-muted); --desk-line:var(--raw-line); --desk-ink:var(--raw-ink); }
+  #act-cost .flow-col { padding-block:clamp(3rem,6vw,6.5rem); }
+  #act-xray { background:#eeeae1; }
+  #act-xray .peak-stage { min-height:0; padding:clamp(3rem,7vw,7rem) clamp(1rem,4vw,4rem); }
+  #act-xray .peak-top-bar,#act-xray .xray-viewport { width:min(100%,72rem); margin-inline:auto; padding:0; }
+  #act-xray .peak-top-bar { align-items:end; gap:1.25rem; margin-bottom:clamp(1.5rem,3vw,3rem); }
+  #act-xray .peak-heading-box { padding:0; background:none; border:0; box-shadow:none; max-width:32rem; }
+  #act-xray h2 { font:600 clamp(1.85rem,3.4vw,3.15rem)/1.06 var(--sc-font-display); letter-spacing:-.045em; }
+  #act-xray .tier-switch { max-width:100%; flex-wrap:wrap; }
+  #act-xray .xray-stack { max-width:none; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); align-items:start; }
+  #act-xray .xray-header { align-items:start; flex-direction:column; gap:.35rem; }
+  #act-xray .xray-rows { grid-template-rows:none; grid-auto-rows:auto; }
+  #act-xray .xray-row { height:auto; padding:.85rem; }
+  #act-xray .xray-row--desk { grid-template-columns:minmax(0,1fr) max-content; gap:.35rem .8rem; align-items:baseline; }
+  #act-xray .sku-name { font-size:.98rem; line-height:1.35; }
+  #act-xray [data-price-sub] { font-weight:600; white-space:nowrap; }
+  #act-xray .sku-detail,#act-xray .unit-rate { font:400 .75rem/1.4 var(--sc-font-mono); color:var(--desk-muted); }
+  #act-xray .unit-rate { text-align:right; white-space:nowrap; }
+  #act-xray [data-price-unit] { display:inline; font:inherit; }
+  #act-xray .sku-warn { grid-column:1/-1; justify-self:start; padding:.28rem .5rem; }
+  #apply { border-top:4px solid var(--crimson-rule); }
+  #apply .close-stage { min-height:0; background:#faf9f5; padding-top:0; }
+  #apply .close-body { padding-block:clamp(3rem,7vw,7rem); }
+  @media(max-width:860px){
+    #act-xray .xray-stack { grid-template-columns:1fr; }
+    #act-cost .side-desk { border-top:1px solid var(--raw-line); }
+  }
+</style>
+</head>
+<body>
+
+<span data-sc-progress></span>
+
+<header class="seam-chrome" id="seamChrome" data-sc-verify-state="seam:50%">
+  <a href="#top" class="seam-chrome__brand">
+    <span class="seam-chrome__mark" aria-hidden="true">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16.5 9.4 7.55 4.24"/>
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.29 7 12 12 20.71 7"/>
+        <line x1="12" x2="12" y1="22" y2="12"/>
+      </svg>
+    </span>
+    <span>Iloilo Superb Mart<span class="brand-sub"> · Order Desk</span></span>
+  </a>
+
+  <div class="seam-chrome__actions">
+    <a href="/login" class="link-staff" data-staff-link data-choice="staff-signin">Staff sign in</a>
+    <a href="#apply" class="btn-cta" data-choice="start-telegram">Start on Telegram</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section id="act-hero" aria-label="Iloilo Superb Mart wholesale ordering">
+    <div id="field-copy">
+      <div class="field-type">
+        <div class="field-mark" aria-hidden="true">ISM</div>
+        <h1>Iloilo Superb Mart</h1>
+        <p>Wholesale ordering on Telegram</p>
+        <small>Send your order. Review your trade prices.</small>
+        <a href="#apply">Start on Telegram</a>
+      </div>
+    </div>
+    <canvas id="hex-out" aria-hidden="true"></canvas>
+  </section>
+
+  <section id="act-cost" data-sc-act="flow" class="flow-split" style="--seam-x: 44%;">
+    <div class="split-backdrop" aria-hidden="true">
+      <div class="split-backdrop__raw"></div>
+      <div class="split-backdrop__desk"></div>
+    </div>
+    <div class="split-divider" aria-hidden="true"></div>
+
+    <div class="flow-col flow-col--compact-top side-raw">
+      <div class="flow-inner" data-sc-in data-sc-stagger="60">
+        <h2 class="section-h2">What manual chat ordering breaks</h2>
+        <ul class="fault-list">
+          <li>
+            <span class="fault-list__tag">Pack mismatch</span>
+            <span class="fault-list__desc">Typing "3 oat milk" without checking whether the buyer meant bottles or 12-carton cases.</span>
+          </li>
+          <li>
+            <span class="fault-list__tag">Tier leakage</span>
+            <span class="fault-list__desc">Quoting Cafe list price to a Hotel Chain account, or losing 10% margin on the wrong sheet.</span>
+          </li>
+          <li>
+            <span class="fault-list__tag">Silent stockout</span>
+            <span class="fault-list__desc">Promising 8 egg trays overnight when only 5 trays remain on the morning floor.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flow-col flow-col--compact-top side-desk">
+      <div class="flow-inner" data-sc-in data-sc-stagger="60">
+        <h2 class="section-h2">AI reads. Code prices.</h2>
+        <div class="proof-grid">
+          <div class="proof-cell">
+            <div class="proof-cell__num" data-sc-count="0 40">0</div>
+            <div class="proof-cell__label">Active F&amp;B SKUs across 5 wholesale categories</div>
+          </div>
+          <div class="proof-cell">
+            <div class="proof-cell__num" data-sc-count="0 120">0</div>
+            <div class="proof-cell__label">Pre-computed PostgreSQL tier prices across 3 tiers</div>
+          </div>
+          <div class="proof-cell">
+            <div class="proof-cell__num" data-sc-count="0 7">0</div>
+            <div class="proof-cell__label">Locked catalog units from BTL to CASE6</div>
+          </div>
+          <div class="proof-cell">
+            <div class="proof-cell__num" data-sc-count="0 0">0</div>
+            <div class="proof-cell__label">Prices or stock totals calculated by the AI model</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="act-xray" >
+    <div class="peak-stage">
+      <div class="split-backdrop" aria-hidden="true">
+        <div class="split-backdrop__raw"></div>
+        <div class="split-backdrop__desk"></div>
+      </div>
+      <div class="split-divider" aria-hidden="true"></div>
+
+      <div class="peak-top-bar">
+        <div class="peak-heading-box">
+          <h2>From buyer message to priced order</h2>
+        </div>
+
+        <div class="tier-switch" role="group" aria-label="Contracted price tier preview">
+          <button type="button" class="tier-btn" data-tier="cafe" aria-pressed="true">Cafe · List</button>
+          <button type="button" class="tier-btn" data-tier="restaurant_group" aria-pressed="false">Restaurant · 5% off</button>
+          <button type="button" class="tier-btn" data-tier="hotel_chain" aria-pressed="false">Hotel · 10% off</button>
+        </div>
+      </div>
+
+      <div class="xray-viewport">
+        <div class="xray-stack" id="xrayStack">
+          <div class="xray-layer xray-layer--raw">
+            <div class="xray-header">
+              <span class="xray-header__title">Inbound Telegram message</span>
+              <span class="xray-header__meta">Kapé Corner · PO-4418 · 11:42 PM</span>
+            </div>
+            <div class="xray-rows">
+              <div class="xray-row xray-row--raw">
+                <span class="xray-row__token">line 01</span>
+                <span class="xray-row__rawtext">"pls send 3 ctn oat milk"</span>
+              </div>
+              <div class="xray-row xray-row--raw">
+                <span class="xray-row__token">line 02</span>
+                <span class="xray-row__rawtext">"+ 2 bags arabica tmr"</span>
+              </div>
+              <div class="xray-row xray-row--raw">
+                <span class="xray-row__token">line 03</span>
+                <span class="xray-row__rawtext">"+ 8 trays eggs, PO-4418"</span>
+              </div>
+            </div>
+            <div class="xray-footer">
+              <span>Price-free LLM prompt: SKU codes and aliases only</span>
+              <span class="xray-header__meta">max_llm_calls = 1</span>
+            </div>
+          </div>
+
+          <div class="xray-layer xray-layer--desk">
+            <div class="xray-header">
+              <span class="xray-header__title">Draft order · <span id="tierHeading">Cafe (List price)</span></span>
+              <span class="xray-header__meta">Order reference: PO-4418</span>
+            </div>
+            <div class="xray-rows">
+              <div class="xray-row xray-row--desk">
+                <div class="sku-name">3 x Oat Milk 1L</div>
+                <span class="cell-mono" data-price-sub="oat">$85.50</span>
+                <div class="sku-detail">DAIRY-OAT-1L &middot; CTN12</div>
+                <div class="unit-rate"><span class="cell-mono" data-price-unit="oat">$28.50</span> each</div>
+                
+              </div>
+              <div class="xray-row xray-row--desk">
+                <div class="sku-name">2 x House Espresso Arabica Beans</div>
+                <span class="cell-mono" data-price-sub="arabica">$48.00</span>
+                <div class="sku-detail">COF-ESP-1K &middot; BAG1KG</div>
+                <div class="unit-rate"><span class="cell-mono" data-price-unit="arabica">$24.00</span> each</div>
+                
+              </div>
+              <div class="xray-row xray-row--desk">
+                <div class="sku-name">8 x Free-Range Large Eggs</div>
+                <span class="cell-mono" data-price-sub="eggs">$76.80</span>
+                <div class="sku-detail">DRY-EGG-30 &middot; TRAY30</div>
+                <div class="unit-rate"><span class="cell-mono" data-price-unit="eggs">$9.60</span> each</div>
+                <span class="sku-warn">Stock warning: only 5 available, staff check</span>
+              </div>
+            </div>
+            <div class="xray-footer">
+              <span class="xray-badge-ok">Held on Confirm for stock review</span>
+              <span class="xray-total">Total: <span id="xrayTotal">$210.30</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+  </section>
+
+  <section id="apply" >
+    <div class="close-stage">
+      <div class="split-backdrop" aria-hidden="true">
+        <div class="split-backdrop__raw"></div>
+        <div class="split-backdrop__desk"></div>
+      </div>
+      <div class="split-divider" aria-hidden="true"></div>
+
+      <div class="close-body">
+        <div class="close-copy">
+          <h2 class="close-title">Open your trade account in four messages.</h2>
+          <p class="close-sub">
+            Message the Iloilo Superb Mart bot directly on Telegram, answer four quick prompts, and wait for your staff tier assignment. Once approved, your next message builds a Draft order.
+          </p>
+          <div class="launch-row">
+            <button type="button" class="btn-cta btn-cta--lg" id="openTelegramModal" data-choice="start-telegram">Start on Telegram</button>
+            <div class="qr-plate" aria-label="Telegram bot QR code">
+              <img width="148" height="148" alt="Scan to open the Iloilo Superb Mart order bot on Telegram" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASgAAAEoAQAAAADDfFG0AAABuUlEQVR4nO2aS3LDMAxDyU7vf2V0CH5kyU6aTbsC28iOx6s3IAVScdgH8fXJS6a3OkSiQyQ6ROIvSHzH4nmPuIN5X+ep2O+8jEXfh5QZ3NFPxeuuQvfggoBVwsI8Fa+bviZCYEBRWqFa+EjCKxsrQVeI16Ev1OoeSRmfqGVDTbx2Xp5fosYnLX5WWorXxgv1JQsXvK7zknjtyvH667SMpOT+2BqTvjrIxWgm8ibVNUrLF8Rr52VxXd4+Sz9lJn+/x0U5mB2S93CEeSVP6ev09wgH4UmLIqO17wImXnu99zASrPGgnkZYtYrXc79tRS2b7VKYeF2CykGaCbBzZL/N/5KaeN39l0X1iuKVw5waUpQHUz6e+kJ6LSKj1ny3G6pfd30Z2ZRdrXLfox3xOuuX5UyVDXdWMNCLqX7tkX0iVvuzqtel5Za+zn6IkVsi11zUD709H0JO8Ud1LTzp69mvWo1xuoxNaVM+HvNor9NH5uEMv6rzFq8Vm3KQbSM9GGhddZ72y/kQ+iCyJxXKxydeyEao5l69UYYFUz6+OR+yGoTRqa5fU6jeP/uvl6H9sUMkOkSiQyQ6/p/ED03ot1sz8ojHAAAAAElFTkSuQmCC">
+              <div class="qr-plate__meta">
+                <span>Scan on phone</span>
+                <span class="qr-plate__handle">@restock_gc_bot</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="apply-card">
+          <div class="apply-card__head">
+            <h3 class="apply-card__title">Preview your onboarding summary</h3>
+            <span class="apply-card__sub">Matches bot review card</span>
+          </div>
+          <div class="apply-grid">
+            <div class="field">
+              <label for="fBusiness">Business name</label>
+              <input id="fBusiness" type="text" maxlength="120" value="Kapé Corner">
+            </div>
+            <div class="field">
+              <label for="fContact">Contact person</label>
+              <input id="fContact" type="text" maxlength="80" value="Marco Reyes">
+            </div>
+            <div class="field">
+              <label for="fPhone">Phone number</label>
+              <input id="fPhone" type="tel" maxlength="20" value="+63 917 555 0148">
+            </div>
+            <div class="field field--full">
+              <label for="fAddress">Delivery address</label>
+              <input id="fAddress" type="text" maxlength="300" value="48 Legazpi St, Makati, Metro Manila">
+            </div>
+          </div>
+          <div class="summary-box" id="summaryPreview" aria-live="polite">Please check your details:
+Business: Kapé Corner
+Contact: Marco Reyes
+Phone: +63 917 555 0148
+Delivery address: 48 Legazpi St, Makati, Metro Manila</div>
+          <div class="apply-foot">
+            <span id="summaryValidity">All 4 fields pass bot validation</span>
+            <button type="button" class="btn-ghost" id="copySummaryBtn" data-choice="copy-summary">Copy details</button>
+          </div>
+        </div>
+      </div>
+
+      <footer class="desk-footer">
+        <span>Iloilo Superb Mart · Wholesale F&amp;B Order Desk · Cafe, Restaurant Group, Hotel Chain tiers</span>
+      </footer>
+    </div>
+  </section>
+
+</main>
+
+<div class="modal-backdrop" id="tgModal" data-open="false" role="dialog" aria-modal="true" aria-labelledby="tgModalTitle">
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h2 class="modal-title" id="tgModalTitle">Open @restock_gc_bot in Telegram</h2>
+      <button type="button" class="btn-ghost" id="closeTelegramModal">Close</button>
+    </div>
+    <p style="margin: 0.75rem 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--desk-muted);">
+      Send any greeting in private chat to start the four-step trade application. Iloilo Superb Mart staff verify your type and Price list tier before activating Draft orders.
+    </p>
+    <div class="summary-box" id="modalSummaryBox"></div>
+    <div class="launch-row" style="margin-top: 1rem;">
+      <a href="https://t.me/restock_gc_bot" target="_blank" rel="noopener noreferrer" class="btn-cta">Open @restock_gc_bot</a>
+      <button type="button" class="btn-ghost" id="modalCopyBtn">Copy summary</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-banner" id="toastBanner" data-visible="false" role="status" aria-live="polite"></div>
+
+<script src="/site/scrollcraft.js"></script>
+<script>
+(function () {
+  var sc = ScrollCraft.mount(document.body);
+
+  var TIERS = {
+    cafe: {
+      label: "Cafe (List price)",
+      prices: { oat: "$28.50", arabica: "$24.00", eggs: "$9.60" },
+      subs: { oat: "$85.50", arabica: "$48.00", eggs: "$76.80" },
+      total: "$210.30"
+    },
+    restaurant_group: {
+      label: "Restaurant Group (5% off)",
+      prices: { oat: "$27.08", arabica: "$22.80", eggs: "$9.12" },
+      subs: { oat: "$81.24", arabica: "$45.60", eggs: "$72.96" },
+      total: "$199.80"
+    },
+    hotel_chain: {
+      label: "Hotel Chain (10% off)",
+      prices: { oat: "$25.65", arabica: "$21.60", eggs: "$8.64" },
+      subs: { oat: "$76.95", arabica: "$43.20", eggs: "$69.12" },
+      total: "$189.27"
+    }
+  };
+
+  var tierHeading = document.getElementById("tierHeading");
+  var xrayTotal = document.getElementById("xrayTotal");
+  var tierBtns = document.querySelectorAll("[data-tier]");
+  var currentTier = "cafe";
+
+  function applyTier(key) {
+    var data = TIERS[key];
+    if (!data) return;
+    currentTier = key;
+    tierHeading.textContent = data.label;
+    xrayTotal.textContent = data.total;
+    Object.keys(data.prices).forEach(function (sku) {
+      var u = document.querySelector('[data-price-unit="' + sku + '"]');
+      var s = document.querySelector('[data-price-sub="' + sku + '"]');
+      if (u) u.textContent = data.prices[sku];
+      if (s) s.textContent = data.subs[sku];
+    });
+    tierBtns.forEach(function (btn) {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-tier") === key ? "true" : "false");
+    });
+  }
+
+  tierBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      applyTier(btn.getAttribute("data-tier"));
+
+    });
+  });
+
+  var fBusiness = document.getElementById("fBusiness");
+  var fContact = document.getElementById("fContact");
+  var fPhone = document.getElementById("fPhone");
+  var fAddress = document.getElementById("fAddress");
+  var summaryPreview = document.getElementById("summaryPreview");
+  var summaryValidity = document.getElementById("summaryValidity");
+  var modalSummaryBox = document.getElementById("modalSummaryBox");
+  var phoneRegex = /^\+?[0-9][0-9 ()-]{6,19}$/;
+
+  function buildSummary() {
+    var b = fBusiness.value.trim() || "Kapé Corner";
+    var c = fContact.value.trim() || "Marco Reyes";
+    var p = fPhone.value.trim() || "+63 917 555 0148";
+    var a = fAddress.value.trim() || "48 Legazpi St, Makati, Metro Manila";
+    var text =
+      "Please check your details:\n" +
+      "Business: " + b + "\n" +
+      "Contact: " + c + "\n" +
+      "Phone: " + p + "\n" +
+      "Delivery address: " + a;
+    summaryPreview.textContent = text;
+    if (modalSummaryBox) modalSummaryBox.textContent = text;
+
+    var ok =
+      b.length >= 2 && b.length <= 120 &&
+      c.length >= 2 && c.length <= 80 &&
+      phoneRegex.test(p) &&
+      a.length >= 5 && a.length <= 300;
+    summaryValidity.textContent = ok
+      ? "All 4 fields pass bot validation"
+      : "Check field length or phone format";
+    return text;
+  }
+
+  [fBusiness, fContact, fPhone, fAddress].forEach(function (inp) {
+    inp.addEventListener("input", buildSummary);
+  });
+  buildSummary();
+
+  var toastBanner = document.getElementById("toastBanner");
+  var toastTimer = null;
+  function showToast(msg) {
+    toastBanner.textContent = msg;
+    toastBanner.setAttribute("data-visible", "true");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastBanner.setAttribute("data-visible", "false");
+    }, 3200);
+  }
+
+  function copySummary() {
+    var text = buildSummary();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        showToast("Onboarding details copied to clipboard.");
+      }).catch(function () {
+        showToast("Summary ready in the card above.");
+      });
+    } else {
+      showToast("Summary ready in the card above.");
+    }
+  }
+
+  document.getElementById("copySummaryBtn").addEventListener("click", copySummary);
+  document.getElementById("modalCopyBtn").addEventListener("click", copySummary);
+
+  var tgModal = document.getElementById("tgModal");
+  document.getElementById("openTelegramModal").addEventListener("click", function () {
+    buildSummary();
+    tgModal.setAttribute("data-open", "true");
+    if (window.toggleSelect) window.toggleSelect(this);
+  });
+
+  document.getElementById("closeTelegramModal").addEventListener("click", function () {
+    tgModal.setAttribute("data-open", "false");
+  });
+
+  tgModal.addEventListener("click", function (e) {
+    if (e.target === tgModal) tgModal.setAttribute("data-open", "false");
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && tgModal.getAttribute("data-open") === "true") {
+      tgModal.setAttribute("data-open", "false");
+    }
+  });
+
+  document.querySelectorAll("[data-staff-link]").forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      if (window.toggleSelect) window.toggleSelect(link);
+    });
+  });
+
+  document.querySelectorAll('a[href="#apply"]').forEach(function (anchor) {
+    anchor.addEventListener("click", function () {
+      if (window.toggleSelect) window.toggleSelect(anchor);
+    });
+  });
+})();
+</script>
+<script type="text/plain" id="hex-float-license"># MIT + Commons Clause License Condition v1.0
+
+Copyright (c) 2026 David Haz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, and distribute the Software **as part of
+an application, website, or product**, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+## Commons Clause Restriction
+
+You may use this Software, including for any commercial purpose, **so long as
+you do not sell, sublicense, or redistribute the components themselves -
+whether alone, in a bundle, or as a ported version.**
+
+## No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</script>
+<script type="module">
+const DEFAULTS = {
+    size: 160,
+    gap: 0,
+    bevel: 1.5,
+    tilt: 24,
+    perspective: 0.5,
+    float: 0,
+    speed: 1,
+    shine: 0.5,
+    lift: 0.1,
+    radius: 1200,
+    flow: 0,
+    swirl: 0,
+    trail: 0,
+    iridescence: 1,
+    bloom: 0,
+    grain: 0.8,
+    gapColor: "auto",
+};
+const VERT = `#version 300 es
+
+precision highp float;
+
+layout(location = 0) in vec2 aPos;
+
+out vec2 vUv;
+
+void main () {
+
+  vUv = aPos * 0.5 + 0.5;
+
+  gl_Position = vec4(aPos, 0.0, 1.0);
+
+}`;
+const FRAG = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uContent;
+
+uniform vec2 uRes;
+
+uniform float uSize;
+
+uniform float uGap;
+
+uniform float uBevel;
+
+uniform float uTilt;
+
+uniform float uDist;
+
+uniform float uFloat;
+
+uniform float uShine;
+
+uniform float uLift;
+
+uniform float uIrid;
+
+uniform sampler2D uFlow;
+
+uniform vec2 uScroll;
+
+uniform float uTime;
+
+uniform float uHasContent;
+
+uniform float uMaxX;
+
+uniform vec3 uBg;
+
+uniform vec3 uGapColor;
+
+
+
+const float TAU = 6.2831853;
+
+const float SQ3 = 1.7320508;
+
+
+
+float hash12 (vec2 p) {
+
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+
+  p3 += dot(p3, p3.yzx + 33.33);
+
+  return fract((p3.x + p3.y) * p3.z);
+
+}
+
+
+
+vec2 hextile (inout vec2 p) {
+
+  const vec2 sz = vec2(1.0, SQ3);
+
+  const vec2 hsz = 0.5 * sz;
+
+  vec2 p1 = mod(p, sz) - hsz;
+
+  vec2 p2 = mod(p - hsz, sz) - hsz;
+
+  vec2 p3 = dot(p1, p1) < dot(p2, p2) ? p1 : p2;
+
+  vec2 n = (p3 - p + hsz) / sz;
+
+  p = p3;
+
+  n -= vec2(0.5);
+
+  return round(n * 2.0) * 0.5;
+
+}
+
+
+
+float hexDist (vec2 p) {
+
+  p = abs(p);
+
+  return max(dot(p, vec2(0.5, 0.8660254)), p.x);
+
+}
+
+
+
+float flowAt (vec2 xy) {
+
+  vec2 uv = (xy * uSize - uScroll) / uRes;
+
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+
+  return clamp(texture(uFlow, uv).r, 0.0, 4.0);
+
+}
+
+
+
+float tileZ (vec2 center, float f) {
+
+  vec2 id = center * vec2(1.0, 1.0 / SQ3);
+
+  float h = hash12(id * 7.31 + 3.7);
+
+  float focus = smoothstep(0.18, 0.85, f);
+
+  float ring = smoothstep(0.02, 0.14, f) * (1.0 - smoothstep(0.14, 0.6, f));
+
+  float bob = uFloat * 0.4 * sin(uTime * 1.4 + h * TAU) * (1.0 - focus);
+
+  float lift = uLift * ring;
+
+  return -(bob + lift * 1.2);
+
+}
+
+
+
+vec4 page (vec2 px) {
+
+  vec2 p = px / uRes;
+
+  if (p.x < 0.0 || p.x > uMaxX || p.y < 0.0 || p.y > 1.0) return vec4(0.0);
+
+  return texture(uContent, p);
+
+}
+
+
+
+vec4 shade (vec2 sUv) {
+
+  float cell = max(uSize, 8.0);
+
+  float hw = max(0.5 - (uGap / cell) * 0.5, 0.15);
+
+  float bevW = clamp(uBevel / cell, 0.0, hw - 0.1);
+
+  float th = 0.09;
+
+
+
+  float aspect = uRes.x / uRes.y;
+
+  vec2 ndc = vec2((sUv.x * 2.0 - 1.0) * aspect, sUv.y * 2.0 - 1.0);
+
+
+
+  float sa = sin(uTilt);
+
+  float ca = cos(uTilt);
+
+  vec3 fwd = vec3(0.0, -sa, ca);
+
+  vec3 upv = vec3(0.0, ca, sa);
+
+  float H = uRes.y / cell;
+
+  float D = H * uDist;
+
+  float focal = (D + sqrt(D * D + H * H * sa * sa)) / (H * ca);
+
+  float dy = 0.5 * H - sa * D
+
+    - ca * D * (ca - focal * sa) / (sa + focal * ca);
+
+  vec3 la = vec3(uScroll.x / cell + 0.5 * uRes.x / cell,
+
+                 uScroll.y / cell + 0.5 * H + dy, 0.0);
+
+  vec3 ro = la - fwd * D;
+
+  vec3 rd = normalize(vec3(ndc.x, 0.0, 0.0) + ndc.y * upv + focal * fwd);
+
+
+
+  vec3 seam = uGapColor;
+
+
+
+  if (rd.z < 0.02) {
+
+    return uHasContent > 0.5 ? vec4(uBg, 1.0) : vec4(0.0);
+
+  }
+
+
+
+  float maxUp = uFloat * 0.4 + uLift * 1.2 + th;
+
+  float floorZ = th + 0.06;
+
+  float tFloor = (floorZ - ro.z) / rd.z;
+
+  float t0 = max((-maxUp - ro.z) / rd.z, 0.0);
+
+
+
+  vec2 oxy = ro.xy;
+
+  vec2 rxy = rd.xy;
+
+  vec2 sp = oxy + rxy * t0;
+
+  vec2 local = sp;
+
+  hextile(local);
+
+  vec2 center = sp - local;
+
+
+
+  vec2 N0 = vec2(1.0, 0.0);
+
+  vec2 N1 = vec2(0.5, 0.8660254);
+
+  vec2 N2 = vec2(-0.5, 0.8660254);
+
+
+
+  bool hit = false;
+
+  bool onTop = false;
+
+  float tHit = 0.0;
+
+  vec3 n = vec3(0.0, 0.0, -1.0);
+
+  float zc = 0.0;
+
+
+
+  float hwc = hw;
+
+  float fCell = 0.0;
+
+  for (int i = 0; i < 64; i++) {
+
+    fCell = flowAt(center);
+
+    zc = tileZ(center, fCell);
+
+    hwc = mix(hw, 0.502, smoothstep(0.18, 0.85, fCell));
+
+    float zTop = zc - th;
+
+    float tZin = (zTop - ro.z) / rd.z;
+
+    float tZout = (zc + th - ro.z) / rd.z;
+
+
+
+    float tIn = -1.0e9;
+
+    float tOut = 1.0e9;
+
+    vec2 inN = vec2(0.0);
+
+    bool empty = false;
+
+    for (int k = 0; k < 3; k++) {
+
+      vec2 Nk = k == 0 ? N0 : (k == 1 ? N1 : N2);
+
+      float d = dot(rxy, Nk);
+
+      float o = dot(oxy - center, Nk);
+
+      if (abs(d) < 1.0e-6) {
+
+        if (abs(o) > hwc) { empty = true; break; }
+
+      } else {
+
+        float ta = (-hwc - o) / d;
+
+        float tb = (hwc - o) / d;
+
+        float lo = min(ta, tb);
+
+        float hi = max(ta, tb);
+
+        if (lo > tIn) { tIn = lo; inN = -sign(d) * Nk; }
+
+        tOut = min(tOut, hi);
+
+      }
+
+    }
+
+
+
+    if (!empty) {
+
+      float lo = max(tIn, tZin);
+
+      float hi = min(tOut, tZout);
+
+      if (lo <= hi && hi > 0.0) {
+
+        tHit = max(lo, 0.0);
+
+        onTop = tZin >= tIn;
+
+        n = onTop ? vec3(0.0, 0.0, -1.0) : vec3(inN, 0.0);
+
+        hit = true;
+
+        break;
+
+      }
+
+    }
+
+
+
+    float tExit = 1.0e9;
+
+    vec2 step2 = vec2(0.0);
+
+    for (int k = 0; k < 3; k++) {
+
+      vec2 Nk = k == 0 ? N0 : (k == 1 ? N1 : N2);
+
+      float d = dot(rxy, Nk);
+
+      if (abs(d) < 1.0e-6) continue;
+
+      float o = dot(oxy - center, Nk);
+
+      float te = (0.5 * sign(d) - o) / d;
+
+      if (te < tExit) { tExit = te; step2 = sign(d) * Nk; }
+
+    }
+
+    if (tExit >= tFloor || step2 == vec2(0.0)) break;
+
+    center += step2;
+
+  }
+
+
+
+  vec3 Ld = normalize(vec3(-0.35, -0.5, -0.78));
+
+
+
+  if (!hit) {
+
+    vec2 fl = (oxy + rxy * tFloor);
+
+    vec2 fLocal = fl;
+
+    hextile(fLocal);
+
+    float open = smoothstep(hw, hw + 0.22, hexDist(fLocal));
+
+    if (uHasContent < 0.5) {
+
+      return vec4(0.0, 0.0, 0.0, 0.4 - 0.25 * open);
+
+    }
+
+    return vec4(seam * mix(0.6, 1.0, open), 1.0);
+
+  }
+
+
+
+  vec3 p = ro + rd * tHit;
+
+
+
+  float fc = smoothstep(0.18, 0.85, fCell);
+
+
+
+  if (onTop) {
+
+    vec2 lp = p.xy - center;
+
+    float e = hwc - hexDist(lp);
+
+    if (e < bevW) {
+
+      float ax = abs(lp.x);
+
+      float a1 = abs(dot(lp, N1));
+
+      float a2 = abs(dot(lp, N2));
+
+      vec2 dir = ax > a1 && ax > a2 ? N0 : (a1 > a2 ? N1 : N2);
+
+      dir *= sign(dot(lp, dir));
+
+      float k = (1.0 - smoothstep(0.0, max(bevW, 1.0e-4), e)) * (1.0 - fc);
+
+      n = normalize(mix(vec3(0.0, 0.0, -1.0), vec3(dir * 0.85, -0.6), k));
+
+    }
+
+  }
+
+
+
+  float diff = max(dot(n, Ld), 0.0);
+
+  vec3 refl = reflect(rd, n);
+
+  vec3 Ld2 = normalize(vec3(0.55, -0.25, -0.8));
+
+  float glintL = pow(max(dot(refl, Ld), 0.0), 120.0);
+
+  float sheenL = pow(max(dot(refl, Ld2), 0.0), 8.0) * 0.35;
+
+  float spec = (glintL + sheenL) * uShine * (1.0 - fc);
+
+  float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0) * (1.0 - fc);
+
+  float iridPh = dot(n, -rd) * 2.2 + (p.x + p.y) * 0.22;
+
+  vec3 iridTint = 1.0 + uIrid * 0.3 * cos(vec3(0.0, 2.094, 4.188) + iridPh * 3.5);
+
+  vec3 specCol = spec * iridTint;
+
+  float raised = clamp(-zc, -0.6, 1.4);
+
+
+
+  if (uHasContent < 0.5) {
+
+    float glint = spec * (0.4 + 0.6 * (onTop ? 0.4 : 1.0)) + fres * 0.2 * uShine;
+
+    float shadeSide = onTop ? 0.0 : 0.3;
+
+    float a = clamp(glint * 0.85 + shadeSide, 0.0, 0.85) * (1.0 - fc);
+
+    return vec4(vec3(min(glint, a)), a);
+
+  }
+
+
+
+  if (onTop) {
+
+    vec4 c = page(p.xy * cell - uScroll);
+
+    vec3 face = mix(uBg, c.rgb, c.a);
+
+    vec3 lit = face * (0.86 + 0.14 * diff + raised * 0.06)
+
+      + specCol * 0.9 + fres * iridTint * 0.12 * uShine;
+
+    return vec4(mix(lit, face, fc), 1.0);
+
+  }
+
+
+
+  float wallAo = 1.0 - smoothstep(zc - th, floorZ, p.z) * 0.4;
+
+  vec3 wallCol = seam * mix(0.55, 1.0, diff) * wallAo
+
+    + specCol * 1.3 + fres * iridTint * 0.28 * uShine;
+
+  return vec4(wallCol, 1.0);
+
+}
+
+
+
+void main () {
+
+  vec2 sUv = vec2(vUv.x, 1.0 - vUv.y);
+
+  vec2 px = 1.0 / uRes;
+
+  vec4 a = shade(sUv + vec2( 0.125,  0.375) * px);
+
+  vec4 b = shade(sUv + vec2(-0.125, -0.375) * px);
+
+  vec4 c = a + b;
+
+  if (dot(abs(a - b), vec4(1.0)) > 0.02) {
+
+    c += shade(sUv + vec2(-0.375,  0.125) * px)
+
+       + shade(sUv + vec2( 0.375, -0.125) * px);
+
+    outColor = c * 0.25;
+
+  } else {
+
+    outColor = c * 0.5;
+
+  }
+
+}`;
+const SIM_VERT = `#version 300 es
+
+precision highp float;
+
+layout(location = 0) in vec2 aPos;
+
+out vec2 vUv;
+
+out vec2 vL;
+
+out vec2 vR;
+
+out vec2 vT;
+
+out vec2 vB;
+
+uniform vec2 texelSize;
+
+void main () {
+
+  vUv = aPos * 0.5 + 0.5;
+
+  vL = vUv - vec2(texelSize.x, 0.0);
+
+  vR = vUv + vec2(texelSize.x, 0.0);
+
+  vT = vUv + vec2(0.0, texelSize.y);
+
+  vB = vUv - vec2(0.0, texelSize.y);
+
+  gl_Position = vec4(aPos, 0.0, 1.0);
+
+}`;
+const FRAG_SPLAT = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uTarget;
+
+uniform float uAspect;
+
+uniform vec3 uColor;
+
+uniform vec2 uPoint;
+
+uniform float uRadius;
+
+void main () {
+
+  vec2 p = vUv - uPoint;
+
+  p.x *= uAspect;
+
+  vec3 splat = exp(-dot(p, p) / uRadius) * uColor;
+
+  vec3 base = texture(uTarget, vUv).xyz;
+
+  outColor = vec4(base + splat, 1.0);
+
+}`;
+const FRAG_ADVECT = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uVelocity;
+
+uniform sampler2D uSource;
+
+uniform vec2 texelSize;
+
+uniform float uDt;
+
+uniform float uDissipation;
+
+void main () {
+
+  vec2 coord = vUv - uDt * texture(uVelocity, vUv).xy * texelSize;
+
+  outColor = uDissipation * texture(uSource, coord);
+
+  outColor.a = 1.0;
+
+}`;
+const FRAG_CLEAR = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uTexture;
+
+uniform float uValue;
+
+void main () {
+
+  outColor = uValue * texture(uTexture, vUv);
+
+}`;
+const FRAG_DIVERGENCE = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+in vec2 vL;
+
+in vec2 vR;
+
+in vec2 vT;
+
+in vec2 vB;
+
+out vec4 outColor;
+
+uniform sampler2D uVelocity;
+
+void main () {
+
+  float L = texture(uVelocity, vL).x;
+
+  float R = texture(uVelocity, vR).x;
+
+  float T = texture(uVelocity, vT).y;
+
+  float B = texture(uVelocity, vB).y;
+
+  vec2 C = texture(uVelocity, vUv).xy;
+
+  if (vL.x < 0.0) { L = -C.x; }
+
+  if (vR.x > 1.0) { R = -C.x; }
+
+  if (vT.y > 1.0) { T = -C.y; }
+
+  if (vB.y < 0.0) { B = -C.y; }
+
+  float div = 0.5 * (R - L + T - B);
+
+  outColor = vec4(div, 0.0, 0.0, 1.0);
+
+}`;
+const FRAG_CURL = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+in vec2 vL;
+
+in vec2 vR;
+
+in vec2 vT;
+
+in vec2 vB;
+
+out vec4 outColor;
+
+uniform sampler2D uVelocity;
+
+void main () {
+
+  float L = texture(uVelocity, vL).y;
+
+  float R = texture(uVelocity, vR).y;
+
+  float T = texture(uVelocity, vT).x;
+
+  float B = texture(uVelocity, vB).x;
+
+  float vorticity = R - L - T + B;
+
+  outColor = vec4(vorticity, 0.0, 0.0, 1.0);
+
+}`;
+const FRAG_VORTICITY = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+in vec2 vL;
+
+in vec2 vR;
+
+in vec2 vT;
+
+in vec2 vB;
+
+out vec4 outColor;
+
+uniform sampler2D uVelocity;
+
+uniform sampler2D uCurl;
+
+uniform float uCurlStrength;
+
+uniform float uDt;
+
+void main () {
+
+  float L = texture(uCurl, vL).x;
+
+  float R = texture(uCurl, vR).x;
+
+  float T = texture(uCurl, vT).x;
+
+  float B = texture(uCurl, vB).x;
+
+  float C = texture(uCurl, vUv).x;
+
+  vec2 force = vec2(abs(T) - abs(B), abs(R) - abs(L)) * 0.5;
+
+  force /= length(force) + 1.0;
+
+  force *= uCurlStrength * C;
+
+  force.y *= -1.0;
+
+  vec2 velocity = texture(uVelocity, vUv).xy;
+
+  outColor = vec4(velocity + force * uDt, 0.0, 1.0);
+
+}`;
+const FRAG_PRESSURE = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+in vec2 vL;
+
+in vec2 vR;
+
+in vec2 vT;
+
+in vec2 vB;
+
+out vec4 outColor;
+
+uniform sampler2D uPressure;
+
+uniform sampler2D uDivergence;
+
+void main () {
+
+  float L = texture(uPressure, vL).x;
+
+  float R = texture(uPressure, vR).x;
+
+  float T = texture(uPressure, vT).x;
+
+  float B = texture(uPressure, vB).x;
+
+  float divergence = texture(uDivergence, vUv).x;
+
+  float pressure = (L + R + B + T - divergence) * 0.25;
+
+  outColor = vec4(pressure, 0.0, 0.0, 1.0);
+
+}`;
+const FRAG_GRADIENT = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+in vec2 vL;
+
+in vec2 vR;
+
+in vec2 vT;
+
+in vec2 vB;
+
+out vec4 outColor;
+
+uniform sampler2D uPressure;
+
+uniform sampler2D uVelocity;
+
+void main () {
+
+  float L = texture(uPressure, vL).x;
+
+  float R = texture(uPressure, vR).x;
+
+  float T = texture(uPressure, vT).x;
+
+  float B = texture(uPressure, vB).x;
+
+  vec2 velocity = texture(uVelocity, vUv).xy;
+
+  velocity.xy -= vec2(R - L, T - B);
+
+  outColor = vec4(velocity, 0.0, 1.0);
+
+}`;
+const FRAG_BRIGHT = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uScene;
+
+void main () {
+
+  vec3 c = texture(uScene, vUv).rgb;
+
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+
+  outColor = vec4(c * smoothstep(0.55, 0.95, l), 1.0);
+
+}`;
+const FRAG_BLUR = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uScene;
+
+uniform vec2 uDir;
+
+void main () {
+
+  vec3 c = texture(uScene, vUv).rgb * 0.227027;
+
+  c += texture(uScene, vUv + uDir * 1.3846154).rgb * 0.3162162;
+
+  c += texture(uScene, vUv - uDir * 1.3846154).rgb * 0.3162162;
+
+  c += texture(uScene, vUv + uDir * 3.2307692).rgb * 0.0702703;
+
+  c += texture(uScene, vUv - uDir * 3.2307692).rgb * 0.0702703;
+
+  outColor = vec4(c, 1.0);
+
+}`;
+const FRAG_COMPOSITE = `#version 300 es
+
+precision highp float;
+
+in vec2 vUv;
+
+out vec4 outColor;
+
+uniform sampler2D uScene;
+
+uniform sampler2D uBloomTex;
+
+uniform float uBloomAmt;
+
+uniform float uGrainAmt;
+
+uniform float uTime;
+
+void main () {
+
+  vec4 scene = texture(uScene, vUv);
+
+  vec3 bloom = texture(uBloomTex, vUv).rgb * uBloomAmt;
+
+  vec3 col = scene.rgb + bloom;
+
+  float g = fract(sin(dot(gl_FragCoord.xy + vec2(uTime * 61.7, uTime * 123.4),
+
+    vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+
+  col += g * uGrainAmt * 0.14;
+
+  float ba = dot(bloom, vec3(0.333));
+
+  outColor = vec4(col, clamp(scene.a + ba, 0.0, 1.0));
+
+}`;
+const SIM_RES = 96;
+const FLOW_RES = 256;
+const SIM_DT = 1 / 60;
+const VELOCITY_DISSIPATION = 0.985;
+const PRESSURE_DECAY = 0.8;
+const PRESSURE_ITERATIONS = 4;
+const HOVER_ATTR = "data-canvasui-hover";
+const CONTENT_ATTR = "data-canvasui-content";
+const HOVER_REWRITE = `:is([${HOVER_ATTR}], :hover:where(:not([${CONTENT_ATTR}], [${CONTENT_ATTR}] *)))`;
+function patchHoverRules() {
+    if (typeof document === "undefined")
+        return;
+    if (document.documentElement.dataset.canvasuiHoverRules === "")
+        return;
+    document.documentElement.dataset.canvasuiHoverRules = "";
+    const walk = (rules) => {
+        for (const rule of Array.from(rules)) {
+            if (rule instanceof CSSStyleRule) {
+                if (rule.selectorText.includes(":hover")) {
+                    try {
+                        rule.selectorText = rule.selectorText.replace(/:hover\b/g, HOVER_REWRITE);
+                    }
+                    catch { }
+                }
+                if (rule.cssRules.length)
+                    walk(rule.cssRules);
+            }
+            else if ("cssRules" in rule) {
+                try {
+                    walk(rule.cssRules);
+                }
+                catch { }
+            }
+        }
+    };
+    for (const sheet of Array.from(document.styleSheets)) {
+        try {
+            walk(sheet.cssRules);
+        }
+        catch { }
+    }
+    const style = document.createElement("style");
+    style.textContent = `[${CONTENT_ATTR}], [${CONTENT_ATTR}] * { cursor: var(--canvasui-cursor, auto) !important; }`;
+    document.head.appendChild(style);
+}
+function createHexFloat(elements, options = {}) {
+    const config = { ...DEFAULTS, ...options };
+    const { source, content, output } = elements;
+    const gl = output.getContext("webgl2", {
+        alpha: true,
+        depth: false,
+        stencil: false,
+        antialias: false,
+        premultipliedAlpha: true,
+    });
+    if (!gl || gl.isContextLost())
+        return null;
+    const supportsFloatTargets = Boolean(gl.getExtension("EXT_color_buffer_float") ||
+        gl.getExtension("EXT_color_buffer_half_float"));
+    if (!supportsFloatTargets)
+        return null;
+    const htmlInCanvas = true;
+    let contentDirty = true;
+    function compile(type, text) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, text);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error("HexFloat shader error:", gl.getShaderInfoLog(shader));
+        }
+        return shader;
+    }
+    const vertexShader = compile(gl.VERTEX_SHADER, VERT);
+    const fragmentShader = compile(gl.FRAGMENT_SHADER, FRAG);
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    const uniforms = {};
+    const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < count; i++) {
+        const info = gl.getActiveUniform(program, i);
+        uniforms[info.name.replace("[0]", "")] = gl.getUniformLocation(program, info.name);
+    }
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const supportsLinear = Boolean(gl.getExtension("OES_texture_float_linear"));
+    const filtering = supportsLinear ? gl.LINEAR : gl.NEAREST;
+    const simShaders = [];
+    const simPrograms = [];
+    function compileSim(type, text) {
+        const shader = compile(type, text);
+        simShaders.push(shader);
+        return shader;
+    }
+    const simVertexShader = compileSim(gl.VERTEX_SHADER, SIM_VERT);
+    function createSimProgram(fragSource) {
+        const prog = gl.createProgram();
+        gl.attachShader(prog, simVertexShader);
+        gl.attachShader(prog, compileSim(gl.FRAGMENT_SHADER, fragSource));
+        gl.linkProgram(prog);
+        simPrograms.push(prog);
+        const u = {};
+        const n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+        for (let i = 0; i < n; i++) {
+            const info = gl.getActiveUniform(prog, i);
+            u[info.name] = gl.getUniformLocation(prog, info.name);
+        }
+        return { program: prog, uniforms: u };
+    }
+    const splatProgram = createSimProgram(FRAG_SPLAT);
+    const advectProgram = createSimProgram(FRAG_ADVECT);
+    const clearProgram = createSimProgram(FRAG_CLEAR);
+    const divergenceProgram = createSimProgram(FRAG_DIVERGENCE);
+    const curlProgram = createSimProgram(FRAG_CURL);
+    const vorticityProgram = createSimProgram(FRAG_VORTICITY);
+    const pressureProgram = createSimProgram(FRAG_PRESSURE);
+    const gradientProgram = createSimProgram(FRAG_GRADIENT);
+    function createTarget(size, internalFormat, format, filter) {
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, size, size, 0, format, gl.HALF_FLOAT, null);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+        gl.viewport(0, 0, size, size);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        return { fbo, texture, width: size, height: size };
+    }
+    function createDoubleTarget(size, internalFormat, format, filter) {
+        let read = createTarget(size, internalFormat, format, filter);
+        let write = createTarget(size, internalFormat, format, filter);
+        return {
+            get read() {
+                return read;
+            },
+            get write() {
+                return write;
+            },
+            swap() {
+                const t = read;
+                read = write;
+                write = t;
+            },
+        };
+    }
+    const velocity = createDoubleTarget(SIM_RES, gl.RG16F, gl.RG, filtering);
+    const flow = createDoubleTarget(FLOW_RES, gl.R16F, gl.RED, filtering);
+    const divergence = createTarget(SIM_RES, gl.R16F, gl.RED, gl.NEAREST);
+    const curl = createTarget(SIM_RES, gl.R16F, gl.RED, gl.NEAREST);
+    const pressure = createDoubleTarget(SIM_RES, gl.R16F, gl.RED, gl.NEAREST);
+    const simTexel = 1 / SIM_RES;
+    function releaseSim() {
+        [
+            velocity.read,
+            velocity.write,
+            flow.read,
+            flow.write,
+            pressure.read,
+            pressure.write,
+            divergence,
+            curl,
+        ].forEach((t) => {
+            gl.deleteFramebuffer(t.fbo);
+            gl.deleteTexture(t.texture);
+        });
+        simPrograms.forEach((p) => gl.deleteProgram(p));
+        simShaders.forEach((s) => gl.deleteShader(s));
+    }
+    function blit(target) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+        gl.viewport(0, 0, target.width, target.height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    function bindSimTexture(texture, unit) {
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        return unit;
+    }
+    function applySplat(x, y, dx, dy, dye) {
+        const aspect = output.clientWidth / Math.max(output.clientHeight, 1);
+        const rUv = Math.max(config.radius, 40) / Math.max(output.clientHeight, 1);
+        const radius = rUv * rUv * 0.28;
+        gl.useProgram(splatProgram.program);
+        gl.uniform1f(splatProgram.uniforms.uAspect, aspect);
+        gl.uniform2f(splatProgram.uniforms.uPoint, x, y);
+        gl.uniform1f(splatProgram.uniforms.uRadius, radius);
+        gl.uniform1i(splatProgram.uniforms.uTarget, bindSimTexture(velocity.read.texture, 0));
+        gl.uniform3f(splatProgram.uniforms.uColor, dx, dy, 0);
+        blit(velocity.write);
+        velocity.swap();
+        gl.uniform1i(splatProgram.uniforms.uTarget, bindSimTexture(flow.read.texture, 0));
+        gl.uniform3f(splatProgram.uniforms.uColor, dye, 0, 0);
+        blit(flow.write);
+        flow.swap();
+    }
+    function stepSim(delta) {
+        gl.disable(gl.BLEND);
+        gl.useProgram(curlProgram.program);
+        gl.uniform2f(curlProgram.uniforms.texelSize, simTexel, simTexel);
+        gl.uniform1i(curlProgram.uniforms.uVelocity, bindSimTexture(velocity.read.texture, 0));
+        blit(curl);
+        gl.useProgram(vorticityProgram.program);
+        gl.uniform2f(vorticityProgram.uniforms.texelSize, simTexel, simTexel);
+        gl.uniform1i(vorticityProgram.uniforms.uVelocity, bindSimTexture(velocity.read.texture, 0));
+        gl.uniform1i(vorticityProgram.uniforms.uCurl, bindSimTexture(curl.texture, 1));
+        gl.uniform1f(vorticityProgram.uniforms.uCurlStrength, Math.max(config.swirl, 0));
+        gl.uniform1f(vorticityProgram.uniforms.uDt, SIM_DT);
+        blit(velocity.write);
+        velocity.swap();
+        gl.useProgram(divergenceProgram.program);
+        gl.uniform2f(divergenceProgram.uniforms.texelSize, simTexel, simTexel);
+        gl.uniform1i(divergenceProgram.uniforms.uVelocity, bindSimTexture(velocity.read.texture, 0));
+        blit(divergence);
+        gl.useProgram(clearProgram.program);
+        gl.uniform1i(clearProgram.uniforms.uTexture, bindSimTexture(pressure.read.texture, 0));
+        gl.uniform1f(clearProgram.uniforms.uValue, Math.pow(PRESSURE_DECAY, delta * 60));
+        blit(pressure.write);
+        pressure.swap();
+        gl.useProgram(pressureProgram.program);
+        gl.uniform2f(pressureProgram.uniforms.texelSize, simTexel, simTexel);
+        gl.uniform1i(pressureProgram.uniforms.uDivergence, bindSimTexture(divergence.texture, 0));
+        for (let i = 0; i < PRESSURE_ITERATIONS; i++) {
+            gl.uniform1i(pressureProgram.uniforms.uPressure, bindSimTexture(pressure.read.texture, 1));
+            blit(pressure.write);
+            pressure.swap();
+        }
+        gl.useProgram(gradientProgram.program);
+        gl.uniform2f(gradientProgram.uniforms.texelSize, simTexel, simTexel);
+        gl.uniform1i(gradientProgram.uniforms.uPressure, bindSimTexture(pressure.read.texture, 0));
+        gl.uniform1i(gradientProgram.uniforms.uVelocity, bindSimTexture(velocity.read.texture, 1));
+        blit(velocity.write);
+        velocity.swap();
+        gl.useProgram(advectProgram.program);
+        gl.uniform2f(advectProgram.uniforms.texelSize, simTexel, simTexel);
+        gl.uniform1i(advectProgram.uniforms.uVelocity, bindSimTexture(velocity.read.texture, 0));
+        gl.uniform1i(advectProgram.uniforms.uSource, bindSimTexture(velocity.read.texture, 0));
+        gl.uniform1f(advectProgram.uniforms.uDt, SIM_DT);
+        gl.uniform1f(advectProgram.uniforms.uDissipation, Math.pow(VELOCITY_DISSIPATION, delta * 60));
+        blit(velocity.write);
+        velocity.swap();
+        gl.uniform1i(advectProgram.uniforms.uVelocity, bindSimTexture(velocity.read.texture, 0));
+        gl.uniform1i(advectProgram.uniforms.uSource, bindSimTexture(flow.read.texture, 1));
+        const flowDissipation = 0.9 + Math.min(Math.max(config.trail, 0), 1) * 0.08;
+        gl.uniform1f(advectProgram.uniforms.uDissipation, Math.pow(flowDissipation, delta * 60));
+        blit(flow.write);
+        flow.swap();
+    }
+    function createPostProgram(fragSource) {
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vertexShader);
+        gl.attachShader(prog, compileSim(gl.FRAGMENT_SHADER, fragSource));
+        gl.linkProgram(prog);
+        simPrograms.push(prog);
+        const u = {};
+        const n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+        for (let i = 0; i < n; i++) {
+            const info = gl.getActiveUniform(prog, i);
+            u[info.name] = gl.getUniformLocation(prog, info.name);
+        }
+        return { program: prog, uniforms: u };
+    }
+    const brightProgram = createPostProgram(FRAG_BRIGHT);
+    const blurProgram = createPostProgram(FRAG_BLUR);
+    const compositeProgram = createPostProgram(FRAG_COMPOSITE);
+    let sceneTarget = null;
+    let bloomA = null;
+    let bloomB = null;
+    function createPostTarget(width, height) {
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+        return { fbo, texture, width, height };
+    }
+    function releasePost() {
+        [sceneTarget, bloomA, bloomB].forEach((t) => {
+            if (!t)
+                return;
+            gl.deleteFramebuffer(t.fbo);
+            gl.deleteTexture(t.texture);
+        });
+        sceneTarget = null;
+        bloomA = null;
+        bloomB = null;
+    }
+    function ensurePost() {
+        const w = output.width;
+        const h = output.height;
+        if (sceneTarget && sceneTarget.width === w && sceneTarget.height === h) {
+            return;
+        }
+        releasePost();
+        sceneTarget = createPostTarget(w, h);
+        const bw = Math.max(1, w >> 2);
+        const bh = Math.max(1, h >> 2);
+        bloomA = createPostTarget(bw, bh);
+        bloomB = createPostTarget(bw, bh);
+    }
+    const contentTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, contentTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+    let contentMaxX = 1;
+    let bg = [1, 1, 1];
+    const bgProbe = document.createElement("canvas");
+    bgProbe.width = bgProbe.height = 1;
+    const bgCtx = bgProbe.getContext("2d", { willReadFrequently: true });
+    function syncBgColor() {
+        if (!bgCtx)
+            return;
+        let el = content;
+        while (el) {
+            const css = getComputedStyle(el).backgroundColor;
+            if (css && css !== "transparent") {
+                bgCtx.clearRect(0, 0, 1, 1);
+                bgCtx.fillStyle = css;
+                bgCtx.fillRect(0, 0, 1, 1);
+                const [r, g, b, a] = bgCtx.getImageData(0, 0, 1, 1).data;
+                if (a > 0) {
+                    bg = [r / 255, g / 255, b / 255];
+                    return;
+                }
+            }
+            el = el.parentElement;
+        }
+        bg = [1, 1, 1];
+    }
+    function syncCanvasSize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.round(output.clientWidth * dpr));
+        const height = Math.max(1, Math.round(output.clientHeight * dpr));
+        if (output.width !== width || output.height !== height) {
+            output.width = width;
+            output.height = height;
+        }
+        contentMaxX = Math.min(1, Math.max(0.05, content.clientWidth / Math.max(output.clientWidth, 1)));
+        paintOrderDesk(source, content, width, height, dpr);
+        contentDirty = true;
+    }
+    syncBgColor();
+    syncCanvasSize();
+    function uploadContent() {
+        if (!htmlInCanvas || !contentDirty)
+            return;
+        contentDirty = false;
+        gl.bindTexture(gl.TEXTURE_2D, contentTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    }
+    let time = 0;
+    let pointerOn = false;
+    let pointerClientX = 0;
+    let pointerClientY = 0;
+    let prevFlowX = 0;
+    let prevFlowY = 0;
+    let hasPrevFlow = false;
+    let simActiveUntil = 0;
+    function gapColor() {
+        if (config.gapColor !== "auto")
+            return config.gapColor;
+        const lum = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2];
+        const k = lum > 0.5 ? 0.55 : 0.35;
+        return [bg[0] * k, bg[1] * k, bg[2] * k];
+    }
+    function render() {
+        uploadContent();
+        const dpr = output.width / Math.max(output.clientWidth, 1);
+        const seam = gapColor();
+        gl.useProgram(program);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, contentTexture);
+        gl.uniform1i(uniforms.uContent, 0);
+        gl.uniform2f(uniforms.uRes, output.width, output.height);
+        gl.uniform1f(uniforms.uSize, Math.max(config.size, 8) * dpr);
+        gl.uniform1f(uniforms.uGap, Math.max(config.gap, 0) * dpr);
+        gl.uniform1f(uniforms.uBevel, Math.max(config.bevel, 0) * dpr);
+        gl.uniform1f(uniforms.uTilt, (Math.min(Math.max(config.tilt, -30), 30) * Math.PI) / 180);
+        gl.uniform1f(uniforms.uDist, 2.6 - Math.min(Math.max(config.perspective, 0), 1) * 2.2);
+        gl.uniform1f(uniforms.uFloat, Math.max(config.float, 0));
+        gl.uniform1f(uniforms.uShine, Math.max(config.shine, 0));
+        gl.uniform1f(uniforms.uLift, Math.max(config.lift, 0));
+        gl.uniform1f(uniforms.uIrid, Math.max(config.iridescence, 0));
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, flow.read.texture);
+        gl.uniform1i(uniforms.uFlow, 1);
+        gl.uniform2f(uniforms.uScroll, content.scrollLeft * dpr, content.scrollTop * dpr);
+        gl.uniform1f(uniforms.uTime, time);
+        gl.uniform1f(uniforms.uHasContent, htmlInCanvas ? 1 : 0);
+        gl.uniform1f(uniforms.uMaxX, contentMaxX);
+        gl.uniform3f(uniforms.uBg, bg[0], bg[1], bg[2]);
+        gl.uniform3f(uniforms.uGapColor, seam[0], seam[1], seam[2]);
+        const bloomOn = config.bloom > 0.001;
+        const usePost = bloomOn || config.grain > 0.001;
+        if (!usePost) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, output.width, output.height);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            return;
+        }
+        ensurePost();
+        blit(sceneTarget);
+        if (bloomOn) {
+            gl.useProgram(brightProgram.program);
+            gl.uniform1i(brightProgram.uniforms.uScene, bindSimTexture(sceneTarget.texture, 0));
+            blit(bloomA);
+            gl.useProgram(blurProgram.program);
+            gl.uniform1i(blurProgram.uniforms.uScene, bindSimTexture(bloomA.texture, 0));
+            gl.uniform2f(blurProgram.uniforms.uDir, 1 / bloomA.width, 0);
+            blit(bloomB);
+            gl.uniform1i(blurProgram.uniforms.uScene, bindSimTexture(bloomB.texture, 0));
+            gl.uniform2f(blurProgram.uniforms.uDir, 0, 1 / bloomA.height);
+            blit(bloomA);
+        }
+        gl.useProgram(compositeProgram.program);
+        gl.uniform1i(compositeProgram.uniforms.uScene, bindSimTexture(sceneTarget.texture, 0));
+        gl.uniform1i(compositeProgram.uniforms.uBloomTex, bindSimTexture((bloomA ?? sceneTarget).texture, 1));
+        gl.uniform1f(compositeProgram.uniforms.uBloomAmt, bloomOn ? Math.min(Math.max(config.bloom, 0), 1) * 1.4 : 0);
+        gl.uniform1f(compositeProgram.uniforms.uGrainAmt, Math.min(Math.max(config.grain, 0), 1));
+        gl.uniform1f(compositeProgram.uniforms.uTime, time);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, output.width, output.height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    let raf = 0;
+    let lastTime = performance.now();
+    let destroyed = false;
+    let running = false;
+    let visible = true;
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reducedMotion = motionQuery.matches;
+    function animating() {
+        if (reducedMotion)
+            return false;
+        if (config.float > 0)
+            return true;
+        if (config.grain > 0.001)
+            return true;
+        if (pointerOn)
+            return true;
+        if (performance.now() < simActiveUntil)
+            return true;
+        return false;
+    }
+    function frame(now) {
+        if (destroyed)
+            return;
+        if (!visible) {
+            running = false;
+            return;
+        }
+        const delta = Math.min(Math.max((now - lastTime) / 1000, 0), 1 / 30);
+        lastTime = now;
+        if (!reducedMotion) {
+            time += delta * Math.max(config.speed, 0);
+            if (pointerOn) {
+                const p = contentPoint(pointerClientX, pointerClientY);
+                if (p) {
+                    const w = Math.max(output.clientWidth, 1);
+                    const h = Math.max(output.clientHeight, 1);
+                    const fx = p.x / w;
+                    const fy = p.y / h;
+                    const dx = hasPrevFlow ? (fx - prevFlowX) * w : 0;
+                    const dy = hasPrevFlow ? (fy - prevFlowY) * h : 0;
+                    const push = 1.6 * Math.max(config.flow, 0);
+                    applySplat(fx, fy, dx * push, dy * push, 10 * delta);
+                    prevFlowX = fx;
+                    prevFlowY = fy;
+                    hasPrevFlow = true;
+                    simActiveUntil = now + 4000;
+                }
+            }
+            if (now < simActiveUntil || pointerOn)
+                stepSim(delta);
+        }
+        render();
+        if (!animating() && !contentDirty) {
+            running = false;
+            return;
+        }
+        raf = requestAnimationFrame(frame);
+    }
+    function start() {
+        if (destroyed || running || !visible)
+            return;
+        running = true;
+        lastTime = performance.now();
+        raf = requestAnimationFrame(frame);
+    }
+    start();
+    function onPointerMove(event) {
+        pointerClientX = event.clientX;
+        pointerClientY = event.clientY;
+        pointerOn = true;
+        simActiveUntil = performance.now() + 4000;
+        updateHover(event.clientX, event.clientY);
+        start();
+    }
+    function onPointerLeave() {
+        pointerOn = false;
+        hasPrevFlow = false;
+        setHoverTarget(null);
+        start();
+    }
+    content.addEventListener("pointercancel", onPointerLeave, { passive: true });
+    content.addEventListener("pointermove", onPointerMove, { passive: true });
+    content.addEventListener("pointerleave", onPointerLeave, { passive: true });
+    function onScroll() {
+        if (pointerOn)
+            updateHover(pointerClientX, pointerClientY);
+        start();
+    }
+    content.addEventListener("scroll", onScroll, { passive: true });
+    function contentPoint(clientX, clientY) {
+        const rect = output.getBoundingClientRect();
+        const dpr = output.width / Math.max(output.clientWidth, 1);
+        const w = output.width;
+        const hPx = output.height;
+        if (w < 1 || hPx < 1)
+            return null;
+        const sx = (clientX - rect.left) * dpr;
+        const sy = (clientY - rect.top) * dpr;
+        const aspect = w / hPx;
+        const ndcX = ((sx / w) * 2 - 1) * aspect;
+        const ndcY = (sy / hPx) * 2 - 1;
+        const tilt = (Math.min(Math.max(config.tilt, -30), 30) * Math.PI) / 180;
+        const sa = Math.sin(tilt);
+        const ca = Math.cos(tilt);
+        const cell = Math.max(config.size, 8) * dpr;
+        const h = hPx / cell;
+        const dist = 2.6 - Math.min(Math.max(config.perspective, 0), 1) * 2.2;
+        const d = h * dist;
+        const focal = (d + Math.sqrt(d * d + h * h * sa * sa)) / (h * ca);
+        const dy = 0.5 * h - sa * d - (ca * d * (ca - focal * sa)) / (sa + focal * ca);
+        const scrollX = content.scrollLeft * dpr;
+        const scrollY = content.scrollTop * dpr;
+        const roX = scrollX / cell + (0.5 * w) / cell;
+        const roY = scrollY / cell + 0.5 * h + dy + sa * d;
+        const roZ = -ca * d;
+        const rdX = ndcX;
+        const rdY = ndcY * ca - focal * sa;
+        const rdZ = ndcY * sa + focal * ca;
+        if (rdZ < 1e-6)
+            return null;
+        const t = -roZ / rdZ;
+        const px = (roX + rdX * t) * cell - scrollX;
+        const py = (roY + rdY * t) * cell - scrollY;
+        return { x: px / dpr, y: py / dpr };
+    }
+    let forwarding = false;
+    let hoverChain = [];
+    let hoverTarget = null;
+    if (htmlInCanvas) {
+        content.setAttribute(CONTENT_ATTR, "");
+    }
+    function setHoverTarget(target) {
+        if (target === hoverTarget)
+            return;
+        hoverTarget = target;
+        const next = new Set();
+        for (let el = target; el; el = el.parentElement) {
+            next.add(el);
+            if (el === content)
+                break;
+        }
+        for (const el of hoverChain) {
+            if (!next.has(el))
+                el.removeAttribute(HOVER_ATTR);
+        }
+        for (const el of next)
+            el.setAttribute(HOVER_ATTR, "");
+        hoverChain = Array.from(next);
+        if (target) {
+            content.style.setProperty("--canvasui-cursor", getComputedStyle(target).cursor);
+        }
+        else {
+            content.style.removeProperty("--canvasui-cursor");
+        }
+    }
+    function updateHover(clientX, clientY) {
+        if (!htmlInCanvas)
+            return;
+        const p = contentPoint(clientX, clientY);
+        if (!p) {
+            setHoverTarget(null);
+            return;
+        }
+        const rect = content.getBoundingClientRect();
+        const target = document.elementFromPoint(rect.left + p.x, rect.top + p.y);
+        setHoverTarget(target && content.contains(target) ? target : null);
+    }
+    function onClick(event) {
+        if (forwarding || !htmlInCanvas || event.detail === 0)
+            return;
+        const p = contentPoint(event.clientX, event.clientY);
+        if (!p)
+            return;
+        const rect = content.getBoundingClientRect();
+        const tx = rect.left + p.x;
+        const ty = rect.top + p.y;
+        if (Math.hypot(tx - event.clientX, ty - event.clientY) < 1.5)
+            return;
+        event.preventDefault();
+        event.stopPropagation();
+        const target = document.elementFromPoint(tx, ty);
+        if (!target || !content.contains(target))
+            return;
+        const focusable = target.closest("a, button, input, select, textarea, [tabindex]");
+        forwarding = true;
+        try {
+            focusable?.focus?.();
+            target.dispatchEvent(new MouseEvent("click", {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: tx,
+                clientY: ty,
+                button: event.button,
+                ctrlKey: event.ctrlKey,
+                shiftKey: event.shiftKey,
+                altKey: event.altKey,
+                metaKey: event.metaKey,
+            }));
+        }
+        finally {
+            forwarding = false;
+        }
+    }
+    content.addEventListener("click", onClick, true);
+    function caretAt(x, y) {
+        const doc = document;
+        if (typeof doc.caretPositionFromPoint === "function") {
+            const c = doc.caretPositionFromPoint(x, y);
+            return c ? { node: c.offsetNode, offset: c.offset } : null;
+        }
+        const r = doc.caretRangeFromPoint?.(x, y);
+        return r ? { node: r.startContainer, offset: r.startOffset } : null;
+    }
+    function remapped(event) {
+        const p = contentPoint(event.clientX, event.clientY);
+        if (!p)
+            return null;
+        const rect = content.getBoundingClientRect();
+        const tx = rect.left + p.x;
+        const ty = rect.top + p.y;
+        if (Math.hypot(tx - event.clientX, ty - event.clientY) < 1.5)
+            return null;
+        return { x: tx, y: ty };
+    }
+    let selecting = false;
+    function onMouseDown(event) {
+        if (forwarding || !htmlInCanvas || event.button !== 0)
+            return;
+        const m = remapped(event);
+        if (!m)
+            return;
+        event.preventDefault();
+        const caret = caretAt(m.x, m.y);
+        if (!caret || !content.contains(caret.node))
+            return;
+        const sel = window.getSelection();
+        if (!sel)
+            return;
+        sel.removeAllRanges();
+        sel.collapse(caret.node, caret.offset);
+        selecting = true;
+    }
+    function onSelMove(event) {
+        if (!selecting)
+            return;
+        if (!(event.buttons & 1)) {
+            selecting = false;
+            return;
+        }
+        const m = remapped(event);
+        const caret = m ? caretAt(m.x, m.y) : null;
+        const sel = window.getSelection();
+        if (caret && sel && sel.anchorNode && content.contains(caret.node)) {
+            sel.extend(caret.node, caret.offset);
+        }
+    }
+    function onSelEnd() {
+        selecting = false;
+    }
+    content.addEventListener("mousedown", onMouseDown, true);
+    window.addEventListener("mousemove", onSelMove, true);
+    window.addEventListener("mouseup", onSelEnd, true);
+    function onMotionChange() {
+        reducedMotion = motionQuery.matches;
+        if (reducedMotion) {
+            pointerOn = false;
+            hasPrevFlow = false;
+            simActiveUntil = 0;
+        }
+        start();
+    }
+    motionQuery.addEventListener("change", onMotionChange);
+    const observer = new ResizeObserver(() => {
+        syncCanvasSize();
+        start();
+    });
+    observer.observe(output);
+    observer.observe(content);
+    let intersecting = true;
+    function syncVisibility() {
+        visible = intersecting && document.visibilityState !== "hidden";
+        if (visible) {
+            start();
+        }
+        else if (running) {
+            cancelAnimationFrame(raf);
+            running = false;
+        }
+    }
+    const intersection = new IntersectionObserver((entries) => {
+        intersecting = entries[entries.length - 1]?.isIntersecting ?? true;
+        syncVisibility();
+    });
+    document.addEventListener("visibilitychange", syncVisibility);
+    intersection.observe(output);
+    const mutation = new MutationObserver(() => {
+        syncBgColor();
+        start();
+    });
+    mutation.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class", "style", "data-theme"],
+    });
+    return {
+        setOptions(next) {
+            if (!Object.entries(next).some(([key, value]) => config[key] !== value))
+                return;
+            Object.assign(config, next);
+            start();
+        },
+        resize() {
+            syncCanvasSize();
+            start();
+        },
+        destroy() {
+            destroyed = true;
+            cancelAnimationFrame(raf);
+            setHoverTarget(null);
+            content.removeAttribute(CONTENT_ATTR);
+            content.removeEventListener("pointermove", onPointerMove);
+            content.removeEventListener("pointerleave", onPointerLeave);
+            content.removeEventListener("scroll", onScroll);
+            content.removeEventListener("click", onClick, true);
+            content.removeEventListener("mousedown", onMouseDown, true);
+            window.removeEventListener("mousemove", onSelMove, true);
+            window.removeEventListener("mouseup", onSelEnd, true);
+            observer.disconnect();
+            intersection.disconnect();
+            document.removeEventListener("visibilitychange", syncVisibility);
+            mutation.disconnect();
+            motionQuery.removeEventListener("change", onMotionChange);
+            gl.deleteTexture(contentTexture);
+            releaseSim();
+            releasePost();
+            gl.deleteProgram(program);
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+            gl.deleteBuffer(quad);
+        },
+    };
+}
+function paintOrderDesk(source, content, width, height, dpr) {
+    source.width = width;
+    source.height = height;
+    const ctx = source.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const bounds = content.getBoundingClientRect();
+    ctx.fillStyle = getComputedStyle(content).backgroundColor;
+    ctx.fillRect(0, 0, bounds.width, bounds.height);
+    ctx.fillStyle = 'rgba(217,218,206,.18)';
+    for (let y = 6; y < bounds.height; y += 12) {
+        for (let x = 6; x < bounds.width; x += 12) {
+            const wave = Math.sin(x / bounds.width * 7 + y / bounds.height * 5 + Math.sin(y / bounds.height * 8));
+            if (wave < 0)
+                continue;
+            ctx.beginPath();
+            ctx.arc(x, y, 1.65 * wave + .12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    for (const line of content.querySelector('.field-type').children) {
+        const box = line.getBoundingClientRect();
+        const style = getComputedStyle(line);
+        const x = box.left - bounds.left;
+        const y = box.top - bounds.top;
+        ctx.fillStyle = style.backgroundColor;
+        ctx.fillRect(x, y, box.width, box.height);
+        ctx.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
+        ctx.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing;
+        ctx.fillStyle = style.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(line.textContent, x + box.width / 2, y + box.height / 2);
+    }
+}
+const hero = document.querySelector('#act-hero');
+const content = document.querySelector('#field-copy');
+const output = document.querySelector('#hex-out');
+const source = document.createElement('canvas');
+const field = createHexFloat({ source, content, output }, {
+    size: 189, gap: 0, bevel: 1.5, tilt: 12, perspective: .65, float: 0, speed: 1, shine: .25,
+    lift: .2, radius: 920, flow: .2, swirl: 0, trail: .15, iridescence: .85, bloom: .36, grain: 0
+});
+if (field) {
+    hero.classList.add('ready');
+    document.fonts.ready.then(() => field.resize());
+    output.addEventListener('webglcontextlost', () => hero.classList.remove('ready'));
+}
+
+</script>
+</body></html>
