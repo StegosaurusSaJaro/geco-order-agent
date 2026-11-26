@@ -109,6 +109,20 @@ class Database:
             ).fetchone()
         return row["n"]
 
+    def recent_repeat_count(self, conversation_id: str, text: str, window_seconds: int) -> int:
+        normalized = (text or "").strip(" \t\r\n").lower()
+        if not normalized:
+            return 0
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "select count(*) as n from messages"
+                " where conversation_id = %s and direction = 'in' and kind = 'text'"
+                " and created_at >= now() - make_interval(secs => %s)"
+                " and lower(btrim(coalesce(body, ''), E' \\t\\r\\n')) = %s",
+                (conversation_id, window_seconds, normalized),
+            ).fetchone()
+        return row["n"]
+
     def log_screening(
         self,
         telegram_user_id: int,

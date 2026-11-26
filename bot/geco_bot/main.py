@@ -17,7 +17,7 @@ from telegram import (
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 from geco_bot import onboarding, orders
-from geco_bot.config import load_settings
+from geco_bot.config import Settings, load_settings
 from geco_bot.db import Customer, Database
 from geco_bot.reader import Reader, check_lines
 from geco_bot.receipt import build_receipt_pdf, order_ref
@@ -62,6 +62,7 @@ class OrderBot:
         flood_max_messages: int = 8,
         flood_window_seconds: int = 60,
         screen_rules: dict | None = None,
+        repeat_max_messages: int | None = None,
     ):
         self.db = db
         self.reader = reader
@@ -71,6 +72,7 @@ class OrderBot:
         self.flood_max_messages = flood_max_messages
         self.flood_window_seconds = flood_window_seconds
         self.screen_rules = screen_rules if screen_rules is not None else load_rules()
+        self.repeat_max_messages = Settings.REPEAT_MAX_MESSAGES if repeat_max_messages is None else repeat_max_messages
 
     async def _reply_to_text(
         self,
@@ -116,7 +118,15 @@ class OrderBot:
         inbound_id = self.db.save_message(conversation_id, "in", "customer", "text", text, telegram_message_id)
         t0 = time.monotonic()
         recent_count = self.db.recent_inbound_count(conversation_id, self.flood_window_seconds)
-        flagged = screen(text, recent_count, self.screen_rules, flood_max=self.flood_max_messages)
+        repeat_count = self.db.recent_repeat_count(conversation_id, text, self.flood_window_seconds)
+        flagged = screen(
+            text,
+            recent_count,
+            self.screen_rules,
+            flood_max=self.flood_max_messages,
+            repeat_count=repeat_count,
+            repeat_max=self.repeat_max_messages,
+        )
         latency_ms = int((time.monotonic() - t0) * 1000)
         if flagged is not None:
             decision, reason = flagged
@@ -609,6 +619,7 @@ def main():
             settings.quantity_min_history,
             settings.FLOOD_MAX_MESSAGES,
             settings.FLOOD_WINDOW_SECONDS,
+            repeat_max_messages=settings.REPEAT_MAX_MESSAGES,
         ),
         poll_seconds=settings.poll_seconds,
     ).run_polling()

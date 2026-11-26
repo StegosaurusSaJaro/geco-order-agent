@@ -12,11 +12,20 @@
     "moron"
   ],
   "injection": [
-    "ignore previous instructions",
-    "ignore all previous",
-    "system prompt",
-    "you are now",
-    "developer mode"
+    "\\bignore\\s+previous\\s+instructions\\b",
+    "\\bignore\\s+all\\s+previous\\b",
+    "\\bignore\\s+(?:(?:all\\s+)?your\\s+(?:previous\\s+)?|all\\s+(?:previous\\s+)?|previous\\s+)(?:instructions|rules)\\b",
+    "\\bignore\\s+the\\s+above\\b",
+    "\\bdisregard\\s+(?:(?:all\\s+)?your\\s+(?:previous\\s+)?|all\\s+(?:previous\\s+)?|previous\\s+)(?:instructions|rules)\\b",
+    "\\bforget\\s+(?:your|all|previous)\\s+(?:instructions|rules)\\b",
+    "\\bnew\\s+instructions:",
+    "\\bsystem\\s+prompt\\b",
+    "\\byou\\s+are\\s+now\\b",
+    "\\bdeveloper\\s+mode\\b",
+    "\\bpretend\\s+you\\s+are\\b",
+    "\\bact\\s+as\\s+(?:an?\\s+)?(?:admin|administrator|developer|system|root|superuser)\\b",
+    "\\bhuwag\\s+mong\\s+sundin\\b",
+    "\\bkalimutan\\s+mo\\s+ang\\s+(?:mga\\s+)?(?:instructions|rules|utos|panuto|patakaran)\\b"
   ],
   "spam": [
     "https?://",
