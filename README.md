@@ -166,10 +166,7 @@ geco-order-agent/
 ├── scripts/
 │   └── check-db.ps1                  # Ephemeral PostgreSQL 18 runner for migrations, seed, stock & RLS checks
 ├── supabase/
-│   ├── migrations/
-│   │   ├── 20261123000000_init.sql                    # 12 tables, order_status enum, indexes, RLS & grants
-│   │   ├── 20261124000000_staff_order_message_links.sql # Scoped staff order_messages insert policy
-│   │   └── 20261124000100_product_stock.sql           # products.stock_qty + NaN/Infinity guard + staff update policy
+│   ├── migrations/                   # Schema, RLS & grants; apply every file in filename order
 │   ├── seed.sql                      # 3 tiers, 7 units, 40 SKUs, 120 tier prices, 8 customers, 40 orders
 │   ├── stock.sql                     # Initial stock_qty levels across all 40 SKUs
 │   └── tests/
@@ -192,9 +189,14 @@ geco-order-agent/
 
 ## Quick Start
 
+For the full clean-clone walkthrough, checks and troubleshooting, see the [setup note](docs/setup.md).
+
+**Free-tool stack:** Telegram Bot API, Supabase free tier, Google AI Studio free tier (no billing account) and GitHub, plus open-source Python, python-telegram-bot, Google ADK, psycopg, openpyxl, xlrd, fpdf2, Node.js, Next.js, React, Tailwind CSS, Recharts, ExcelJS and PostgreSQL.
+
 ### Prerequisites
 
 - **Python 3.12+** and [`uv`](https://docs.astral.sh/uv/)
+- **Node.js 22+** and npm (dashboard)
 - **PostgreSQL 18** (optional for cloud deployment; required locally to run `scripts/check-db.ps1` and `pytest`)
 - A **Supabase** project (or local PostgreSQL instance)
 - A **Telegram Bot token** from `@BotFather`
@@ -215,13 +217,11 @@ Copy-Item .env.example .env
 | `GEMINI_MODEL` | Primary Gemini model ID | `gemini-3.5-flash-lite` |
 | `GEMINI_FALLBACK_MODEL` | Secondary model ID used after retry exhaustion | `gemini-3.1-flash-lite` |
 | `SUPABASE_DB_URL` | PostgreSQL connection string used by `geco_bot` | *(required)* |
-| `SUPABASE_URL` | Supabase project URL for the dashboard | *(required for dashboard)* |
-| `SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key for the dashboard | *(required for dashboard)* |
 | `REVIEW_THRESHOLD_USD` | Order total above which orders route to staff review | `2000` |
 
 ### 2. Initialize Database & Map Your Telegram Account
 
-Apply the three migrations in [supabase/migrations/](supabase/migrations) in timestamp order, then run [supabase/seed.sql](supabase/seed.sql) and [supabase/stock.sql](supabase/stock.sql). Finally, link your numeric Telegram user ID to one of the seeded customer accounts (such as `Kapé Corner`):
+Apply every file in [supabase/migrations/](supabase/migrations) in filename order, then run [supabase/seed.sql](supabase/seed.sql) and [supabase/stock.sql](supabase/stock.sql). Finally, link your numeric Telegram user ID to one of the seeded customer accounts (such as `Kapé Corner`):
 
 ```sql
 update customers
@@ -236,6 +236,27 @@ cd bot
 uv sync
 uv run python -m geco_bot.main
 ```
+
+### 4. Run the Staff Dashboard
+
+The dashboard reads `dashboard/.env.local`, not the root `.env`. Create it with these variables:
+
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
+| `TELEGRAM_BOT_TOKEN` | Same bot token, used to send staff replies |
+
+In Supabase Authentication, add a staff user and turn off public sign-ups. Then, in a second terminal from the repository root:
+
+```powershell
+cd dashboard
+npm ci
+npm run build
+npm start
+```
+
+Open `http://localhost:3000` and sign in with the staff user.
 
 ---
 
