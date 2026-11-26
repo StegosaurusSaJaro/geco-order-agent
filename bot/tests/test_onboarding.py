@@ -511,3 +511,24 @@ def test_reapply_after_reject(bot, db):
     assert second["id"] != first["id"]
     assert second["status"] == "collecting"
     assert second["step"] == "business_name"
+
+
+def test_command_is_not_an_answer(bot, db):
+    run(bot.on_text(7016, 7016, "hi"))
+
+    r_cmd = run(bot.on_text(7016, 7016, "/start"))
+    assert QUESTIONS["business_name"] in r_cmd.text
+    signup = db.open_signup(7016)
+    assert signup["step"] == "business_name"
+    assert signup["business_name"] is None
+
+    run(bot.on_text(7016, 7016, "Kopi Corner"))
+    run(bot.on_text(7016, 7016, "Alice Tan"))
+
+    r_phone_cmd = run(bot.on_text(7016, 7016, "/start"))
+    assert QUESTIONS["phone"] in r_phone_cmd.text
+    assert isinstance(r_phone_cmd.reply_markup, ReplyKeyboardMarkup)
+    assert r_phone_cmd.reply_markup.keyboard[0][0].request_contact is True
+    signup = db.open_signup(7016)
+    assert signup["step"] == "phone"
+    assert signup["phone"] is None

@@ -66,6 +66,21 @@ def _reprompt(step: str, message: str, keyboard: str | None = None) -> StepOutco
     )
 
 
+def _reprompt_step(signup: dict) -> StepOutcome:
+    step = signup.get("step")
+    if step == "review":
+        return StepOutcome(
+            action="reprompt",
+            reply_text=review_summary(signup),
+            keyboard="review",
+        )
+    return StepOutcome(
+        action="reprompt",
+        reply_text=QUESTIONS[step],
+        keyboard="phone" if step == "phone" else None,
+    )
+
+
 def handle_text(signup: dict | None, text: str) -> StepOutcome:
     if signup is None:
         return StepOutcome(
@@ -78,6 +93,9 @@ def handle_text(signup: dict | None, text: str) -> StepOutcome:
 
     step = signup.get("step")
     trimmed = (text or "").strip()
+
+    if signup.get("status") == "collecting" and trimmed.startswith("/"):
+        return _reprompt_step(signup)
 
     if step == "business_name":
         if 2 <= len(trimmed) <= 120:
@@ -176,17 +194,7 @@ def handle_button(signup: dict | None, action: str) -> StepOutcome:
         )
     if action == "submit" and step == "review":
         return StepOutcome(action="submit", reply_text=SUBMITTED_REPLY)
-    if step == "review":
-        return StepOutcome(
-            action="reprompt",
-            reply_text=review_summary(signup),
-            keyboard="review",
-        )
-    return StepOutcome(
-        action="reprompt",
-        reply_text=QUESTIONS[step],
-        keyboard="phone" if step == "phone" else None,
-    )
+    return _reprompt_step(signup)
 
 
 def format_notice(notice: dict) -> str:
