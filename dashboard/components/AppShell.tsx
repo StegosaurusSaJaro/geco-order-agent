@@ -99,7 +99,7 @@ export function AppShell({
                   className={cn(
                     'flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13.5px] font-medium transition-colors',
                     isActive
-                      ? 'bg-sidebar-accent text-foreground font-semibold shadow-[inset_2.5px_0_0_var(--brand-crimson)]'
+                      ? 'bg-background text-foreground shadow-xs'
                       : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
                   )}
                 >
