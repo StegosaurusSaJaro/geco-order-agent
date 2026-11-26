@@ -461,6 +461,21 @@ begin
     end;
 
     begin
+      perform review_flag(v_flag_3, null);
+      raise exception 'Expected invalid_parameter_value for null review_flag decision';
+    exception
+      when invalid_parameter_value then
+        null;
+    end;
+
+    select status into v_flag_status
+    from screening_log
+    where id = v_flag_3;
+    if v_flag_status is distinct from 'held' then
+      raise exception 'Expected screening_log status=held after null review_flag decision, got %', v_flag_status;
+    end if;
+
+    begin
       update screening_log set decision = 'allow' where id = v_flag_3;
       raise exception 'Expected insufficient_privilege when authenticated updates screening_log.decision';
     exception

@@ -14,7 +14,7 @@ as $$
 declare
   v_next_status text;
 begin
-  if p_decision not in ('release', 'dismiss') then
+  if p_decision is null or p_decision not in ('release', 'dismiss') then
     raise exception using errcode = '22023', message = 'invalid review decision';
   end if;
 
