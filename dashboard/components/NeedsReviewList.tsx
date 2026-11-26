@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { reviewReasonLabel } from '@/app/orders/[id]/OrderReviewActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency, shortId } from '@/lib/format';
 import { formatWaitingAge, type HeldOrder } from '@/lib/orders';
+import { cn } from '@/lib/utils';
+
+export const HELD_ORDERS_DISPLAY_LIMIT = 8;
 
 type NeedsReviewListProps = {
   orders: HeldOrder[];
@@ -15,31 +17,53 @@ type NeedsReviewListProps = {
 };
 
 export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
+  const visibleOrders = orders.slice(0, HELD_ORDERS_DISPLAY_LIMIT);
+  const hasOverflow = orders.length > HELD_ORDERS_DISPLAY_LIMIT;
+
   return (
     <section id="needs-review" aria-labelledby="needs-review-heading" className="scroll-mt-6">
-      <Card className="py-0 gap-0 overflow-hidden border-amber-300/90">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-amber-200/90 bg-amber-50/90 px-4 py-3 text-amber-950">
+      <div className="rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(24,27,49,0.04)] overflow-hidden flex flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-5 py-3.5">
           <div className="flex items-center gap-2 min-w-0">
             <span
               aria-hidden="true"
-              className="size-2 shrink-0 rounded-full bg-[var(--dot-amber)] ring-1 ring-amber-900/20"
+              className={cn(
+                'size-2 shrink-0 rounded-full',
+                orders.length > 0
+                  ? 'bg-[var(--dot-amber)] ring-1 ring-foreground/15'
+                  : 'bg-[var(--dot-green)]'
+              )}
             />
-            <CardTitle id="needs-review-heading" className="text-[13.5px] font-semibold">
+            <h2
+              id="needs-review-heading"
+              className="text-[14px] font-semibold tracking-[-0.01em] text-foreground truncate"
+            >
               Needs Review
-            </CardTitle>
+            </h2>
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {orders.length} held · Oldest first
+            </span>
           </div>
-          <span className="text-xs font-medium text-amber-900/80 tabular-nums shrink-0">
-            {orders.length} {orders.length === 1 ? 'held' : 'held'} · Oldest first
-          </span>
-        </CardHeader>
 
-        {orders.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            Nothing waiting for review.
+          {hasOverflow ? (
+            <Link
+              href="/reports?status=needs_review"
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-all duration-150 ease-out hover:text-foreground active:scale-[0.98] shrink-0"
+            >
+              View all {orders.length}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          ) : null}
+        </div>
+
+        {visibleOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1 px-5 py-10 text-center">
+            <p className="text-sm font-medium text-foreground">All clear</p>
+            <p className="text-xs text-muted-foreground">Nothing waiting for review.</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
-            {orders.map((order) => {
+          <ul className="divide-y divide-border/70">
+            {visibleOrders.map((order) => {
               const refLabel = order.po_number ? order.po_number : `#${shortId(order.id)}`;
               const reasons =
                 order.review_reasons.length > 0
@@ -50,13 +74,13 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
               return (
                 <li
                   key={order.id}
-                  className="flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-amber-50/40 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 px-5 py-3.5 transition-colors duration-150 ease-out hover:bg-sidebar/50 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex flex-col gap-1.5 min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <Link
                         href={`/orders/${order.id}`}
-                        className="font-mono text-sm font-semibold text-foreground hover:text-[var(--brand-crimson)] hover:underline underline-offset-4 tabular-nums"
+                        className="font-mono text-sm font-semibold text-foreground transition-colors duration-150 ease-out hover:text-[var(--brand-crimson)] hover:underline underline-offset-4 tabular-nums"
                       >
                         {refLabel}
                       </Link>
@@ -74,7 +98,7 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
                         <Badge
                           key={label}
                           variant="outline"
-                          className="border-amber-300/90 bg-amber-50/80 text-amber-950 font-medium"
+                          className="border-border/80 bg-sidebar/60 text-foreground/85 font-medium"
                         >
                           {label}
                         </Badge>
@@ -91,7 +115,12 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
                         Waiting {waiting}
                       </span>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="transition-all duration-150 ease-out active:scale-[0.98]"
+                      asChild
+                    >
                       <Link href={`/orders/${order.id}`}>
                         Review
                         <ArrowRight className="size-3.5" />
@@ -103,7 +132,22 @@ export function NeedsReviewList({ orders, nowMs }: NeedsReviewListProps) {
             })}
           </ul>
         )}
-      </Card>
+
+        {hasOverflow ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-sidebar/30 px-5 py-3 text-xs">
+            <span className="text-muted-foreground tabular-nums">
+              Showing {visibleOrders.length} of {orders.length} held orders
+            </span>
+            <Link
+              href="/reports?status=needs_review"
+              className="inline-flex items-center gap-1 font-medium text-foreground transition-all duration-150 ease-out hover:text-[var(--brand-crimson)] active:scale-[0.98]"
+            >
+              View full held list
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }
