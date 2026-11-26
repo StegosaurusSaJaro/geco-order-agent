@@ -3,6 +3,15 @@ from decimal import Decimal
 
 PLACEHOLDER = re.compile(r"\$?\{(price|stock):([A-Z0-9-]+)\}")
 CENT = Decimal("0.01")
+DRAFT_HEADING = "Draft order"
+DRAFT_DIVIDER = "──────────"
+CATEGORY_LABELS = {
+    "dairy": "DAIRY",
+    "coffee_tea": "COFFEE & TEA",
+    "dry_goods": "DRY GOODS",
+    "sauces": "SAUCES",
+    "packaging": "PACKAGING",
+}
 
 
 def money(value: Decimal) -> str:
@@ -47,20 +56,23 @@ def price_lines(kept: list[dict], products: dict[str, dict]):
     return lines, unpriced, total
 
 
-def draft_text(lines: list[dict], products: dict[str, dict], total: Decimal, dropped: list[str]) -> str:
-    rows = ["Draft order:"]
+def draft_text(
+    lines: list[dict], products: dict[str, dict], total: Decimal, dropped: list[str], heading: str = DRAFT_HEADING
+) -> str:
+    rows = [heading, ""]
     for n, line in enumerate(lines, start=1):
         p = products[line["sku"]]
+        rows.append(f"{n}. {p['name']}")
         rows.append(
-            f"{n}. {amount(line['quantity'])} x {p['name']} ({p['unit_name']}) @ {money(line['unit_price'])}"
+            f"   {amount(line['quantity'])} × {p['unit_name']} @ {money(line['unit_price'])}"
             f" = {money(line['line_total'])}"
         )
         if line["quantity"] > p["stock_qty"]:
-            rows.append(f"   only {amount(p['stock_qty'])} available, staff will check this line")
-    rows.append(f"Total: {money(total)}")
+            rows.append(f"   ⚠️ Only {amount(p['stock_qty'])} available, staff will check this line")
+    rows.extend([DRAFT_DIVIDER, f"Total: {money(total)}"])
     if dropped:
         rows.append("I couldn't match: " + ", ".join(dropped))
-    rows.append("Tap Confirm to place it or Cancel to drop it.")
+    rows.extend(["", "Tap Confirm to place it or Cancel to drop it."])
     return "\n".join(rows)
 
 
@@ -69,6 +81,15 @@ def dropped_text(dropped: list[str]) -> str:
 
 
 def price_list_text(rows: list[dict]) -> str:
-    lines = ["Your price list:"]
-    lines += [f"{r['name']} ({r['unit_name']}): {money(r['unit_price'])}" for r in rows]
+    categories = {category: [] for category in CATEGORY_LABELS}
+    for row in rows:
+        categories.setdefault(row["category"], []).append(
+            f"{row['name']} — {money(row['unit_price'])} / {row['unit_name']}"
+        )
+    lines = ["Your price list"]
+    for category, products in categories.items():
+        if products:
+            label = CATEGORY_LABELS.get(category, category.replace("_", " ").upper())
+            lines.extend(["", label, *products])
+    lines.extend(["", 'Reply with what you need, e.g. "2 cartons oat milk".'])
     return "\n".join(lines)

@@ -46,9 +46,9 @@ def test_chitchat_with_draft_shows_reminder(bot, db, reader, monkeypatch):
     reply = run(bot.on_text(CAFE, CHAT, "hi"))
 
     assert sentence in reply.text
-    assert OPEN_DRAFT_REMINDER in reply.text
-    assert "Draft order:" in reply.text
-    assert "2 x Barista Almond Milk 1L" in reply.text
+    assert "You still have an open draft\n\n" in reply.text
+    assert "Draft order" not in reply.text
+    assert "1. Barista Almond Milk 1L\n   2 × Carton of 12" in reply.text
     assert "Total:" in reply.text
     assert "Tap Confirm" in reply.text
     assert reply.order_id == draft.order_id
@@ -62,9 +62,9 @@ def test_question_with_draft_shows_reminder(bot, db, reader, monkeypatch):
     reply = run(bot.on_text(CAFE, CHAT, "when do you deliver?"))
 
     assert sentence in reply.text
-    assert OPEN_DRAFT_REMINDER in reply.text
-    assert "Draft order:" in reply.text
-    assert "2 x Barista Almond Milk 1L" in reply.text
+    assert "You still have an open draft\n\n" in reply.text
+    assert "Draft order" not in reply.text
+    assert "1. Barista Almond Milk 1L\n   2 × Carton of 12" in reply.text
     assert "Total:" in reply.text
     assert "Tap Confirm" in reply.text
     assert reply.order_id == draft.order_id
@@ -90,7 +90,7 @@ def test_other_intents_with_draft_no_reminder(bot, db, reader, monkeypatch, inte
 
     assert reply.text == sentence
     assert OPEN_DRAFT_REMINDER not in reply.text
-    assert "Draft order:" not in reply.text
+    assert "Draft order" not in reply.text
     assert reply.order_id is None
 
 
@@ -104,7 +104,7 @@ def test_price_list_with_draft_unchanged(bot, db, reader, monkeypatch):
     assert sentence in reply.text
     assert "Barista Almond Milk 1L" in reply.text
     assert OPEN_DRAFT_REMINDER not in reply.text
-    assert "Draft order:" not in reply.text
+    assert "Draft order" not in reply.text
     assert reply.order_id is None
 
 
@@ -137,7 +137,7 @@ def test_reminder_unpriced_sku_omits_total_and_buttons(bot, db, reader, monkeypa
 
         assert reply.order_id is None
         assert sentence in reply.text
-        assert OPEN_DRAFT_REMINDER in reply.text
+        assert f"{OPEN_DRAFT_REMINDER}:" in reply.text
         assert OAT in reply.text
         assert RESEND_ORDER_REPLY in reply.text
         assert "Total:" not in reply.text

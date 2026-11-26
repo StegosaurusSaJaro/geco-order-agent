@@ -44,8 +44,8 @@ def test_followup_shows_draft_and_buttons(bot, db, reader, monkeypatch):
     reply = run(bot.on_text(CAFE, CHAT, "what is in my draft?"))
 
     assert sentence in reply.text
-    assert "Draft order:" in reply.text
-    assert "2 x Barista Almond Milk 1L" in reply.text
+    assert "Draft order\n\n" in reply.text
+    assert "1. Barista Almond Milk 1L\n   2 × Carton of 12" in reply.text
     assert "Total:" in reply.text
     assert "Tap Confirm" in reply.text
     assert reply.order_id == draft.order_id
@@ -59,8 +59,8 @@ def test_checkout_followup_shows_buttons(bot, db, reader, monkeypatch):
     reply = run(bot.on_text(CAFE, CHAT, "checkout"))
 
     assert sentence in reply.text
-    assert "Draft order:" in reply.text
-    assert "2 x Barista Almond Milk 1L" in reply.text
+    assert "Draft order\n\n" in reply.text
+    assert "1. Barista Almond Milk 1L\n   2 × Carton of 12" in reply.text
     assert "Total:" in reply.text
     assert "Tap Confirm" in reply.text
     assert reply.order_id == draft.order_id

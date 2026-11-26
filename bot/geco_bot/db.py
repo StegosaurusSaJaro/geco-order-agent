@@ -197,7 +197,7 @@ class Database:
     def price_list(self, tier_id: int) -> list[dict]:
         with self.pool.connection() as conn:
             return conn.execute(
-                "select p.sku, p.name, u.name as unit_name, tp.unit_price"
+                "select p.sku, p.name, p.category, u.name as unit_name, tp.unit_price"
                 " from products p"
                 " join units_of_measure u on u.code = p.unit_code"
                 " join tier_prices tp on tp.sku = p.sku and tp.tier_id = %s"

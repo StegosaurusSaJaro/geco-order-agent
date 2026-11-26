@@ -75,7 +75,7 @@ def test_exactly_three_times_confirms(bot, db, reader, monkeypatch):
     draft = run(bot.on_text(TEST_USER, CHAT, "15 ctn oat milk"))
     confirmed = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
 
-    assert confirmed.text == main.CONFIRM_REPLIES["confirmed"]
+    assert confirmed.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $384.75\nThank you!"
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
     assert scalar(db, "select stock_qty from products where sku = %s", OAT) == before - 15
 
@@ -93,7 +93,7 @@ def test_one_past_order_not_checked(bot, db, reader, monkeypatch):
     draft = run(bot.on_text(TEST_USER, CHAT, "10 ctn oat milk"))
     confirmed = run(bot.on_button(TEST_USER, CHAT, "confirm", draft.order_id))
 
-    assert confirmed.text == main.CONFIRM_REPLIES["confirmed"]
+    assert confirmed.text == f"Order {draft.order_id[:8]} confirmed\n1 item · Total $256.50\nThank you!"
     assert scalar(db, "select status::text from orders where id = %s", draft.order_id) == "confirmed"
     assert scalar(db, "select stock_qty from products where sku = %s", OAT) == before - 10
 
