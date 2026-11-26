@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/landing-page.jpg" alt="Iloilo Superb Mart landing page: Wholesale ordering on Telegram, with a Start on Telegram button" width="100%">
+
 # GECO Order Agent
 
 **Automated wholesale order capture on Telegram—backed by deterministic tier pricing in Supabase and a Next.js staff inbox.**
