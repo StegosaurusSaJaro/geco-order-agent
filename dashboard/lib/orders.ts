@@ -130,6 +130,17 @@ export type ExportRow = {
   created: string;
 };
 
+export type OrderExportRow = {
+  order: string;
+  customer: string;
+  tier: string;
+  status: string;
+  po: string;
+  items: number;
+  total: number;
+  created: string;
+};
+
 export type HeldOrder = {
   id: string;
   po_number: string | null;
@@ -648,6 +659,27 @@ export function buildChartData(
     topSkus,
     ordersByStatus,
   };
+}
+
+export function buildOrderExportRows(
+  orders: FilteredOrder[],
+  lines: FilteredOrderLine[]
+): OrderExportRow[] {
+  const counts = new Map<string, number>();
+  for (const line of lines) {
+    counts.set(line.order_id, (counts.get(line.order_id) ?? 0) + 1);
+  }
+
+  return orders.map((order) => ({
+    order: `#${shortId(order.id)}`,
+    customer: order.customer_name,
+    tier: order.tier_name,
+    status: statusLabel(order.status),
+    po: order.po_number ?? '',
+    items: counts.get(order.id) ?? 0,
+    total: order.total,
+    created: order.created_at,
+  }));
 }
 
 export function buildExportRows(
