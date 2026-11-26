@@ -39,15 +39,27 @@ Customer (Kapé Corner · Café tier):
   pls send 3 ctn oat milk + 2 bags arabica tmr
 
 GECO Order Agent:
-  Got it, I've drafted that order for you.
+  Got it, here is your draft.
 
-  Draft order:
-  1. 3 x Oat Milk 1L (Carton of 12) @ $28.50 = $85.50
-  2. 2 x House Espresso Arabica Beans (1 kg Bag) @ $24.00 = $48.00
+  Draft order
+
+  1. Oat Milk 1L
+     3 × Carton of 12 @ $28.50 = $85.50
+  2. House Espresso Arabica Beans
+     2 × 1 kg Bag @ $24.00 = $48.00
+  ──────────
   Total: $133.50
+
   Tap Confirm to place it or Cancel to drop it.
 
   [ Confirm ]  [ Cancel ]
+
+Customer taps [ Confirm ]:
+  Order 3a7736d1 confirmed
+  2 items · Total $133.50
+  Thank you!
+
+  [ Get receipt ]   → sends one PDF receipt, then the button is removed
 ```
 
 **2. Tier-aware price & stock inquiry**
@@ -70,18 +82,45 @@ Customer:
   8 trays eggs
 
 GECO Order Agent:
-  Got it, here is your draft order.
+  Got it, here is your draft.
 
-  Draft order:
-  1. 8 x Free-Range Large Eggs (Tray of 30) @ $9.60 = $76.80
-     only 5 available, staff will check this line
+  Draft order
+
+  1. Free-Range Large Eggs
+     8 × Tray of 30 @ $9.60 = $76.80
+     ⚠️ Only 5 available, staff will check this line
+  ──────────
   Total: $76.80
+
   Tap Confirm to place it or Cancel to drop it.
 
   [ Confirm ]  [ Cancel ]
 
 Customer taps [ Confirm ] → Order moves to needs_review (review_reasons = ['stock']), stock stays at 5:
-  Some items are short on stock, so our staff will check this order and get back to you.
+  Our staff will check this order and get back to you.
+```
+
+**4. Editing an open draft**
+
+```text
+Customer (open draft: 3 ctn oat milk + 2 bags arabica):
+  just the arabica, make it 4
+
+GECO Order Agent:
+  Removed from your draft: Oat Milk 1L
+
+  Draft order
+
+  1. House Espresso Arabica Beans
+     4 × 1 kg Bag @ $24.00 = $96.00
+  ──────────
+  Total: $96.00
+
+  Tap Confirm to place it or Cancel to drop it.
+
+Customer taps [ Confirm ] on the older draft message:
+  This draft has changed. Here is the latest one:
+  (the current draft, with fresh buttons; nothing is confirmed)
 ```
 
 <details>
@@ -89,8 +128,14 @@ Customer taps [ Confirm ] → Order moves to needs_review (review_reasons = ['st
 
 1. **Intents classified in a single turn:** `order`, `follow-up`, `question`, `price-list`, `chit-chat`, `abuse`, `spam`, `off-topic`, and `injection`.
 2. **Full tier price list:** Asking for a price list without naming a product bypasses draft creation and renders every active SKU in the buyer's `tier_prices` table directly from SQL.
-3. **Unmatched or wrong-unit lines:** If an item cannot be matched (`NO_MATCH`) or its extracted unit mismatches the SKU's catalog unit, `check_lines()` drops it and reports `"I couldn't match: ..."` instead of silently guessing.
-4. **Idempotent buttons:** Confirming or cancelling updates `orders WHERE id = ... AND customer_id = ... AND status = 'draft'`. Tapping a stale button returns `"This order was already handled."`
+3. **Unmatched, wrong-unit or fractional lines:** If an item cannot be matched (`NO_MATCH`), its unit mismatches the SKU's catalog unit, or its quantity is not a whole number of units, `check_lines()` drops it and reports `"I couldn't match: ..."` instead of silently guessing.
+4. **Idempotent buttons:** Confirming or cancelling updates `orders WHERE id = ... AND customer_id = ... AND status = 'draft'`. Tapping a button on an order that is already closed returns `"This order was already handled."`
+5. **Versioned Confirm buttons:** Each Confirm button carries a fingerprint of the draft lines it showed (`confirm:<order id>:<8 hex>`). If the draft has been edited since, the tap confirms nothing and the bot resends the latest draft.
+6. **Visible removals:** When an edit or replacement drops items, the reply starts with `"Removed from your draft: ..."`, so a misread edit is caught before Confirm.
+7. **One open draft per chat:** Creating a draft closes any other open draft in the same chat in the same transaction, and the partial unique index `orders_one_open_draft` blocks a second one at the database level.
+8. **Draft reminders:** Chit-chat or a question while a draft is open is answered, followed by `"You still have an open draft"` and the draft.
+9. **Staff holds:** Orders over `REVIEW_THRESHOLD_USD`, short on stock, or with a quantity more than `QUANTITY_FACTOR` times the buyer's usual go to `needs_review` with every matching reason.
+10. **Message screening:** Rule-based checks in [screen.py](bot/geco_bot/screen.py) hold injection, abuse, spam, repeats and floods for staff in the dashboard's Flagged view before any model call.
 
 </details>
 
@@ -104,8 +149,8 @@ flowchart TD
     Bot["Telegram Bot (python-telegram-bot, Long Polling)"]
     ADK["Google ADK LlmAgent (Gemini 3.5 / 3.1 Flash-Lite, max_llm_calls=1)"]
     Engine["Deterministic Order Engine (geco_bot/orders.py + db.py)"]
-    DB[("Supabase PostgreSQL (12 Tables + Row-Level Security)")]
-    Dash["Staff Web Dashboard (Next.js + Recharts on Vercel)"]
+    DB[("Supabase PostgreSQL (13 Tables + Row-Level Security)")]
+    Dash["Staff Web Dashboard (Next.js + Recharts)"]
 
     Customer -->|"1. Message and Telegram user ID"| Bot
     Bot -->|"2. Lookup customer and recent chat history"| DB
@@ -116,7 +161,7 @@ flowchart TD
     Customer -->|"7. Tap Confirm button"| Bot
     Bot -->|"8. Atomic draft-to-confirmed and stock check/deduct"| DB
     DB -->|"9. Orders, lines, and linked order_messages"| Dash
-    Dash -->|"10. Staff review approval or rejection (planned)"| DB
+    Dash -->|"10. Staff approve or reject, reply in chat, approve sign-ups"| DB
 ```
 
 ### Tech Stack
@@ -126,8 +171,9 @@ flowchart TD
 | **Bot & Runtime** | Python 3.12+, `python-telegram-bot` v22+ (long polling), `uv` | Runs cleanly from a local machine with zero public HTTPS webhook or server setup. |
 | **AI Reader** | `google-adk`, `google-genai` (`gemini-3.5-flash-lite` primary, `gemini-3.1-flash-lite` fallback), Pydantic v2 | Single-turn structured output for intent classification, catalog SKU matching, PO number extraction, and placeholder replies. |
 | **Database & Auth** | Supabase (PostgreSQL 18 compatible), Row-Level Security, `psycopg[binary,pool]` v3.2+ | Enforces strict customer scoping, atomic stock updates, and authenticated staff access. |
-| **Document Parsing** | Gemini multimodal + `openpyxl` / `xlrd` | Packaged in `bot/` for upcoming PDF/photo purchase orders and `.xlsx`/`.xls` spreadsheets. |
-| **Staff Dashboard** *(planned)* | Next.js (TypeScript), Recharts, `exceljs`, Supabase Auth, Vercel | Order inbox beside linked Telegram chats, review approvals, 4 shared-filter charts, and CSV/XLSX export. |
+| **Document Parsing** | Gemini multimodal + `openpyxl` / `xlrd` | Reads PDF and photo purchase orders and `.xlsx`/`.xls` spreadsheets into the same draft flow as text. |
+| **Receipts** | `fpdf2` | One PDF receipt per confirmed order, sent on request in Telegram. |
+| **Staff Dashboard** | Next.js (TypeScript), Tailwind CSS, Recharts, `exceljs`, Supabase Auth + Realtime | Order inbox beside linked Telegram chats, review approvals, staff replies, inventory, flagged messages, sign-up approvals, 4 report charts, and Excel export. |
 
 ---
 
@@ -137,10 +183,11 @@ Implemented across [bot/geco_bot/](bot/geco_bot) and [supabase/migrations/](supa
 
 1. **Deterministic Tier Pricing** — Prices are queried from `tier_prices (tier_id, sku)` using `Decimal` arithmetic (`0.01` cent quantization). `products.list_price` is never used directly at order time, and the LLM system prompt contains SKU codes, names, units, and aliases—never prices.
 2. **One Model Call per Message** — [reader.py](bot/geco_bot/reader.py) runs a tool-less Google ADK `LlmAgent` with a dynamically generated `Literal[...]` Pydantic `output_schema`, `temperature=0`, `ThinkingLevel.LOW`, `max_llm_calls=1`, exponential backoff retries (`attempts=4` on `429`/`503`), and automatic fallback from `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite`.
-3. **Strict Catalog & Unit Validation** — `check_lines()` verifies every returned SKU is active, `quantity > 0`, and `unit == product["unit_code"]`. Unmatched or unit-mismatched lines (`NO_MATCH`) are dropped and surfaced explicitly to the buyer.
+3. **Strict Catalog & Unit Validation** — `check_lines()` verifies every returned SKU is active, the quantity is a whole number above `0`, and `unit == product["unit_code"]`. Unmatched or unit-mismatched lines (`NO_MATCH`) are dropped and surfaced explicitly to the buyer.
 4. **Confirm-Once & Guarded Stock Deduction** — `Database.confirm()` in [db.py](bot/geco_bot/db.py) updates `orders` only `WHERE id = %s AND customer_id = %s AND status = 'draft'` and deducts `products.stock_qty` inside a nested transaction (`WHERE p.stock_qty >= l.qty`). Duplicate taps return `"This order was already handled."`; short stock rolls back the deduction and places the order into `needs_review` with `review_reasons = ['stock']`.
 5. **Order-to-Conversation Lineage** — `order_messages` links only the inbound messages, bot replies, and button presses belonging to a specific order, while `messages` preserves the complete chronological chat log (including non-order questions and failed reads).
-6. **Customer Isolation & Hardened RLS** — Unregistered `telegram_user_id` senders receive a fixed rejection reply with zero database writes. All 12 tables enable Row-Level Security with `anon` revoked, scoped `authenticated` staff grants, a `NaN`/`Infinity`-safe non-negative stock constraint, and conversation-verified staff message linking.
+6. **Draft Integrity Without Trusting the Model** — One open draft per chat is enforced in `Database.create_draft()` and by the `orders_one_open_draft` partial unique index; a stale Confirm is refused by comparing the button's draft fingerprint inside the locked confirm transaction; confirmed and cancelled orders are labelled closed in the model's history so their items are not copied into new drafts.
+7. **Customer Isolation & Hardened RLS** — Unregistered `telegram_user_id` senders can only start the sign-up flow, which staff approve in the dashboard before any order is taken. All 13 tables enable Row-Level Security with `anon` revoked, scoped `authenticated` staff grants, a `NaN`/`Infinity`-safe non-negative stock constraint, and conversation-verified staff message linking.
 
 ---
 
@@ -165,6 +212,12 @@ geco-order-agent/
 ├── .env.example                      # Required Telegram, Gemini, Supabase, and threshold config
 ├── scripts/
 │   └── check-db.ps1                  # Ephemeral PostgreSQL 18 runner for migrations, seed, stock & RLS checks
+├── docs/
+│   └── setup.md                      # Clean-clone setup, checks and troubleshooting
+├── dashboard/                        # Next.js staff dashboard (reads dashboard/.env.local)
+│   ├── app/                          # orders, conversations, flagged, inventory, reports, signups, login, api/orders/export
+│   ├── components/                   # App shell, charts, chat log, filters, live refresh, skeletons
+│   └── lib/                          # Supabase client, Telegram sender, Excel export, formatting
 ├── supabase/
 │   ├── migrations/                   # Schema, RLS & grants; apply every file in filename order
 │   ├── seed.sql                      # 3 tiers, 7 units, 40 SKUs, 120 tier prices, 8 customers, 40 orders
@@ -178,11 +231,15 @@ geco-order-agent/
     │   ├── config.py                 # Loads environment variables from repo-root .env
     │   ├── db.py                     # psycopg connection pool, queries, atomic confirm & stock deduction
     │   ├── main.py                   # python-telegram-bot handlers & OrderBot orchestration
-    │   ├── orders.py                 # Deterministic Decimal pricing, draft formatting & placeholder helpers
-    │   └── reader.py                 # Google ADK LlmAgent, dynamic Pydantic schema, line check & fallback retry
+    │   ├── onboarding.py             # Telegram sign-up flow for unregistered buyers
+    │   ├── orders.py                 # Deterministic Decimal pricing, draft formatting, draft fingerprint & removal note
+    │   ├── reader.py                 # Google ADK LlmAgent, dynamic Pydantic schema, line check & fallback retry
+    │   ├── receipt.py                # PDF receipts
+    │   ├── screen.py                 # Rule-based screening before any model call
+    │   └── screen_rules.json         # Injection, abuse and spam patterns
     └── tests/
         ├── conftest.py               # Session-scoped throwaway Postgres template DB fixture
-        └── test_core_loop.py         # Core loop, tier pricing, stock hold, idempotency & failure tests
+        └── test_*.py                 # Core loop, draft guards, edits, holds, receipts, screening, onboarding & more
 ```
 
 ---
@@ -218,6 +275,9 @@ Copy-Item .env.example .env
 | `GEMINI_FALLBACK_MODEL` | Secondary model ID used after retry exhaustion | `gemini-3.1-flash-lite` |
 | `SUPABASE_DB_URL` | PostgreSQL connection string used by `geco_bot` | *(required)* |
 | `REVIEW_THRESHOLD_USD` | Order total above which orders route to staff review | `2000` |
+| `QUANTITY_FACTOR` | A line more than this many times the buyer's usual quantity routes to staff review | `3` |
+| `QUANTITY_MIN_HISTORY` | Past orders needed before the usual-quantity check applies | `2` |
+| `POLL_SECONDS` | How often the bot checks for staff actions (released messages, rejects, receipts) | `5` |
 
 ### 2. Initialize Database & Map Your Telegram Account
 
@@ -256,7 +316,9 @@ npm run build
 npm start
 ```
 
-Open `http://localhost:3000` and sign in with the staff user.
+Open `http://localhost:3000` and sign in with the staff user. The staff screens are branded **Iloilo Superb Mart Order Desk**; receipts and the Excel export still name GECO Asia as the seller.
+
+To host the dashboard on Vercel, set the project root to `dashboard` and add only the three variables above. The bot keeps running locally, since it uses long polling. Turn off public sign-up in Supabase Auth before the URL goes public, because every RLS policy trusts any signed-in user.
 
 ---
 
@@ -285,11 +347,15 @@ Both verification suites spin up an isolated, throwaway PostgreSQL 18 instance o
 
 - [x] Supabase PostgreSQL schema, Row-Level Security policies, 40-SKU catalog, 3-tier pricing, synthetic seed, and stock levels
 - [x] Ephemeral PostgreSQL verification harness ([scripts/check-db.ps1](scripts/check-db.ps1) + [supabase/tests/check.sql](supabase/tests/check.sql))
-- [x] Core Telegram text-order loop with Google ADK structured output, tier pricing, confirm/cancel, and `pytest` suite *(in progress on `feat/step-1-core-loop`)*
-- [ ] Next.js staff dashboard: order inbox and full conversation monitor
-- [ ] Interactive analytics (4 Recharts views, shared URL filters) and CSV/XLSX export on Vercel
-- [ ] Open-draft conversational edits (`"make the oat milk 5"`) and staff hold/approval workflow (`REVIEW_THRESHOLD_USD` + short stock)
-- [ ] Multimodal purchase order intake (PDF, photo, `.xlsx`, `.xls`)
+- [x] Core Telegram text-order loop with Google ADK structured output, tier pricing, confirm/cancel, and `pytest` suite
+- [x] Next.js staff dashboard: order inbox, live conversation monitor, staff replies, inventory, flagged messages and sign-up approvals
+- [x] Reports (4 Recharts views) and Excel export
+- [x] Open-draft conversational edits (`"make the oat milk 5"`) and staff hold/approval workflow (threshold, short stock, unusual quantity)
+- [x] Multimodal purchase order intake (PDF, photo, `.xlsx`, `.xls`)
+- [x] PDF receipts, reject notices, draft reminders and Telegram sign-up
+- [x] Draft guards: one open draft per chat, versioned Confirm buttons, visible removals, whole units only
+- [ ] Dashboard hosted on Vercel
+- [ ] Log every Gemini call to `model_calls` for cost and latency views
 
 ---
 
